@@ -1,46 +1,105 @@
-/* Gigachad Agenda service worker — gigachad-agenda-v19-core */
-'use strict';
-var CACHE_VERSION = 'gigachad-agenda-v19-core';
-var SHELL = ['/', '/index.html', '/manifest.json', '/sw.js', '/favicon.png', '/icon-192.png', '/icon-512.png'];
-var KEEP_PREFIX = 'gigachad-agenda-backgrounds-';
-var KEEP_INBOX = 'gigachad-agenda-share-inbox-v1';
-var OFFLINE = function () { return new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } }); };
+const CACHE_NAME = "gigachad-agenda-v12";
+const BACKGROUND_CACHE_PREFIX = "gigachad-agenda-backgrounds-";
 
-self.addEventListener('install', function (e) {
-  e.waitUntil(caches.open(CACHE_VERSION).then(function (c) {
-    return Promise.all(SHELL.map(function (u) {
-      return c.add(new Request(u, { cache: 'reload' })).catch(function () {});
-    }));
-  }).then(function () { return self.skipWaiting(); }));
+const APP_SHELL = [
+  "/",
+  "/index.html",
+  "/manifest.json",
+  "/sw.js",
+  "/favicon.png",
+  "/icon-192.png",
+  "/icon-512.png"
+];
+
+self.addEventListener("install", event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(async cache => {
+        await Promise.all(
+          APP_SHELL.map(async url => {
+            try {
+              const response = await fetch(url, { cache: "no-store" });
+              if (response.ok) {
+                await cache.put(url, response);
+              }
+            } catch (_) {
+              // Continue installation if an asset is unavailable.
+            }
+          })
+        );
+      })
+      .then(() => self.skipWaiting())
+  );
 });
 
-self.addEventListener('activate', function (e) {
-  e.waitUntil(caches.keys().then(function (ks) {
-    return Promise.all(ks.filter(function (k) {
-      return k.indexOf('gigachad-agenda-') === 0 && k !== CACHE_VERSION &&
-        k.indexOf(KEEP_PREFIX) !== 0 && k !== KEEP_INBOX;
-    }).map(function (k) { return caches.delete(k); }));
-  }).then(function () { return self.clients.claim(); }));
+self.addEventListener("activate", event => {
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(
+        keys
+          .filter(key =>
+            key !== CACHE_NAME &&
+            !key.startsWith(BACKGROUND_CACHE_PREFIX)
+          )
+          .map(key => caches.delete(key))
+      ))
+      .then(() => self.clients.claim())
+  );
 });
 
-self.addEventListener('fetch', function (e) {
-  var r = e.request;
-  if (r.method !== 'GET') return;
-  if (new URL(r.url).origin !== self.location.origin) return;
-  e.respondWith(caches.match(r).then(function (hit) {
-    if (hit) return hit;
-    return fetch(r).then(function (res) {
-      if (res && res.ok && res.type === 'basic') {
-        var cp = res.clone();
-        caches.open(CACHE_VERSION).then(function (c) { return c.put(r, cp); }).catch(function () {});
+self.addEventListener("fetch", event => {
+  const request = event.request;
+
+  if (request.method !== "GET") {
+    return;
+  }
+
+  const url = new URL(request.url);
+
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  event.respondWith(
+    caches.match(request).then(cachedResponse => {
+      if (cachedResponse) {
+        return cachedResponse;
       }
-      return res;
-    }).catch(function () {
-      if (r.mode === 'navigate') {
-        return caches.match('/index.html').then(function (s) { return s || caches.match('/'); })
-          .then(function (s) { return s || OFFLINE(); });
-      }
-      return OFFLINE();
-    });
-  }));
+
+      return fetch(request)
+        .then(networkResponse => {
+          if (
+            networkResponse &&
+            networkResponse.ok &&
+            networkResponse.type === "basic"
+          ) {
+            const copy = networkResponse.clone();
+
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(request, copy);
+            });
+          }
+
+          return networkResponse;
+        })
+        .catch(() => {
+          if (request.mode === "navigate") {
+            return caches.match("/").then(root => {
+              return root || caches.match("/index.html");
+            });
+          }
+
+          return new Response("", {
+            status: 503,
+            statusText: "Offline"
+          });
+        });
+    })
+  );
+});
+
+self.addEventListener("message", event => {
+  if (event.data === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
