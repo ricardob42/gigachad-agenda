@@ -1,46 +1,9 @@
-/* Gigachad Agenda service worker — gigachad-agenda-v19-core */
-'use strict';
-var CACHE_VERSION = 'gigachad-agenda-v19-core';
-var SHELL = ['/', '/index.html', '/manifest.json', '/sw.js', '/favicon.png', '/icon-192.png', '/icon-512.png'];
-var KEEP_PREFIX = 'gigachad-agenda-backgrounds-';
-var KEEP_INBOX = 'gigachad-agenda-share-inbox-v1';
-var OFFLINE = function () { return new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } }); };
-
-self.addEventListener('install', function (e) {
-  e.waitUntil(caches.open(CACHE_VERSION).then(function (c) {
-    return Promise.all(SHELL.map(function (u) {
-      return c.add(new Request(u, { cache: 'reload' })).catch(function () {});
-    }));
-  }).then(function () { return self.skipWaiting(); }));
-});
-
-self.addEventListener('activate', function (e) {
-  e.waitUntil(caches.keys().then(function (ks) {
-    return Promise.all(ks.filter(function (k) {
-      return k.indexOf('gigachad-agenda-') === 0 && k !== CACHE_VERSION &&
-        k.indexOf(KEEP_PREFIX) !== 0 && k !== KEEP_INBOX;
-    }).map(function (k) { return caches.delete(k); }));
-  }).then(function () { return self.clients.claim(); }));
-});
-
-self.addEventListener('fetch', function (e) {
-  var r = e.request;
-  if (r.method !== 'GET') return;
-  if (new URL(r.url).origin !== self.location.origin) return;
-  e.respondWith(caches.match(r).then(function (hit) {
-    if (hit) return hit;
-    return fetch(r).then(function (res) {
-      if (res && res.ok && res.type === 'basic') {
-        var cp = res.clone();
-        caches.open(CACHE_VERSION).then(function (c) { return c.put(r, cp); }).catch(function () {});
-      }
-      return res;
-    }).catch(function () {
-      if (r.mode === 'navigate') {
-        return caches.match('/index.html').then(function (s) { return s || caches.match('/'); })
-          .then(function (s) { return s || OFFLINE(); });
-      }
-      return OFFLINE();
-    });
-  }));
-});
+/* Gigachad Agenda service worker — gigachad-agenda-v20 */
+var V='gigachad-agenda-v20',SHELL=['/','/index.html','/manifest.json','/sw.js','/favicon.png','/icon-192.png','/icon-512.png'],INBOX='gigachad-agenda-share-inbox-v1',P='/__gigachad-agenda-share__/pending';
+self.addEventListener('install',function(e){e.waitUntil(caches.open(V).then(function(c){return Promise.all(SHELL.map(function(u){return c.add(new Request(u,{cache:'reload'})).catch(function(){})}))}).then(function(){return self.skipWaiting()}))});
+self.addEventListener('activate',function(e){e.waitUntil(caches.keys().then(function(ks){return Promise.all(ks.filter(function(k){return k.indexOf('gigachad-agenda-')===0&&k!==V&&k.indexOf('gigachad-agenda-backgrounds-')!==0&&k!==INBOX}).map(function(k){return caches.delete(k)}))}).then(function(){return self.clients.claim()}))});
+function share(req){return req.formData().then(function(fd){var f=fd.get('backup');if(!f||typeof f==='string'||f.size>5242880)return Response.redirect('./?shared=error',303);return f.text().then(function(t){return caches.open(INBOX).then(function(c){return c.put(P,new Response(t,{headers:{'Content-Type':'application/json'}}))}).then(function(){return Response.redirect('./?shared=1',303)})})}).catch(function(){return Response.redirect('./?shared=error',303)})}
+self.addEventListener('fetch',function(e){var r=e.request,u=new URL(r.url);if(u.origin!==location.origin)return;
+if(r.method==='POST'&&(u.pathname==='/'||u.pathname==='/index.html')){e.respondWith(share(r));return}
+if(r.method!=='GET')return;
+e.respondWith(caches.match(r).then(function(hit){return hit||fetch(r).then(function(n){if(n&&n.ok&&n.type==='basic'){var cp=n.clone();caches.open(V).then(function(c){return c.put(r,cp)}).catch(function(){})}return n}).catch(function(){return r.mode==='navigate'?caches.match('/index.html').then(function(x){return x||new Response('Offline',{status:503,headers:{'Content-Type':'text/plain'}})}):new Response('Offline',{status:503,headers:{'Content-Type':'text/plain'}})})}))});
