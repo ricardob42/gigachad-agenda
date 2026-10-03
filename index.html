@@ -8,6 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Gigachad Agenda"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="icon" href="/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/icon-192.png"><link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png"><link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0b0f19">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
 <style>
 :root{color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
 --night:#0b0f19;--slate:#111827;--blue:#3b82f6;--blue-deep:#2563eb;--emerald:#10b981;--amber:#f59e0b;--rose:#f43f5e;
@@ -250,6 +251,8 @@ input[type=text],input[type=time],input[type=date]{min-height:40px;padding:0 var
 @media (prefers-reduced-transparency:reduce){.top,.dlg{backdrop-filter:none;-webkit-backdrop-filter:none}.dlg{background:#0f1421}}
 @media (max-width:380px){.app{padding:0 var(--sp-2) var(--sp-5)}.top{gap:var(--sp-2)}.logo{width:36px;height:36px}h1{font-size:22px}.nav{gap:var(--sp-1)}.cell .d{font-size:12px}.tab{padding:0 var(--sp-3)}.card{padding:var(--sp-4)}.fring{width:176px;height:176px}.ftime{font-size:30px}}
 @media (orientation:landscape) and (max-height:500px){.top{position:static}.bar{margin:var(--sp-3) 0 var(--sp-2)}.cell{min-height:44px}.pill,.more{display:none}.badge{display:block}.dlg,.fcard{max-height:calc(100dvh - 16px)}.pbox{max-height:calc(100dvh - 32px)}.pal{padding-top:var(--sp-3)}.pbtn kbd{display:none}.fring{width:140px;height:140px}.ftime{font-size:30px}}
+@media (max-width:700px){.dayb,.sw{width:44px;height:44px}.tab,.wrow,.whead,.mgrid .pi,.ystep .pi,.fdur button{min-height:44px}}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}.row .box{animation:none!important}}
 @page{margin:12mm}
 @media print{
 :root{color-scheme:light}
@@ -272,24 +275,24 @@ h1,h1 small,h2,.mhb,.dow span{color:#000!important}
 <div class="app">
 <header class="top"><div class="logo" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M9 15l2 2 4-4"/></svg></div>
 <div class="brand"><b>Gigachad Agenda</b><span>Local-first routine calendar</span></div><button class="btn pbtn" id="pbtn" type="button" aria-label="Open command palette"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><kbd>Ctrl K</kbd></button></header>
-<nav class="tabs" role="tablist" aria-label="Views"><button class="tab" role="tab" id="t-calendar" aria-controls="view-calendar" aria-selected="true">Calendar</button><button class="tab" role="tab" id="t-week" aria-controls="view-week" aria-selected="false">Week</button><button class="tab" role="tab" id="t-routines" aria-controls="view-routines" aria-selected="false">Routines</button><button class="tab" role="tab" id="t-background" aria-controls="view-background" aria-selected="false">Background</button><button class="tab" role="tab" id="t-backup" aria-controls="view-backup" aria-selected="false">Backup<span class="tdot" id="tdot" aria-hidden="true" hidden></span><span class="sr" id="tdotsr" hidden>, backup due</span></button><button class="tab" role="tab" id="t-stats" aria-controls="view-stats" aria-selected="false">Stats</button></nav>
+<nav class="tabs" role="tablist" aria-label="Views"><button type="button" class="tab" role="tab" id="t-calendar" aria-controls="view-calendar" aria-selected="true">Calendar</button><button type="button" class="tab" role="tab" id="t-week" aria-controls="view-week" aria-selected="false">Week</button><button type="button" class="tab" role="tab" id="t-routines" aria-controls="view-routines" aria-selected="false">Routines</button><button type="button" class="tab" role="tab" id="t-background" aria-controls="view-background" aria-selected="false">Background</button><button type="button" class="tab" role="tab" id="t-backup" aria-controls="view-backup" aria-selected="false">Backup<span class="tdot" id="tdot" aria-hidden="true" hidden></span><span class="sr" id="tdotsr" hidden>, backup due</span></button><button type="button" class="tab" role="tab" id="t-stats" aria-controls="view-stats" aria-selected="false">Stats</button></nav>
 <main>
 <section class="view" id="view-calendar" role="tabpanel" aria-labelledby="t-calendar">
 <div class="bar"><h1 id="mh" aria-live="polite"><button class="mhb" id="mhb" type="button" aria-haspopup="dialog" aria-expanded="false"></button></h1><span class="chip" id="tc">Not the current month</span>
-<div class="nav"><button class="btn" id="pv" aria-label="Previous month">‹</button><button class="btn" id="td">Today</button><button class="btn" id="nx" aria-label="Next month">›</button></div></div>
+<div class="nav"><button type="button" class="btn" id="pv" aria-label="Previous month">‹</button><button type="button" class="btn" id="td">Today</button><button type="button" class="btn" id="nx" aria-label="Next month">›</button></div></div>
 <div class="dow" aria-hidden="true"></div>
 <div class="grid" id="grid" role="grid" aria-label="Month calendar"></div>
 <p class="key"><i></i> Fill shows the share of the day's tasks done. A run of full cells is a streak.<span class="hint"><kbd>←</kbd> <kbd>→</kbd> months · <kbd>T</kbd> today</span></p>
 </section>
 <section class="view" id="view-week" role="tabpanel" aria-labelledby="t-week" hidden>
-<div class="bar"><h1 id="wh" aria-live="polite"></h1><span class="chip" id="wc"></span><div class="nav"><button class="btn" id="wp" aria-label="Previous week">‹</button><button class="btn" id="wt">Today</button><button class="btn" id="wn" aria-label="Next week">›</button></div></div>
+<div class="bar"><h1 id="wh" aria-live="polite"></h1><span class="chip" id="wc"></span><div class="nav"><button type="button" class="btn" id="wp" aria-label="Previous week">‹</button><button type="button" class="btn" id="wt">Today</button><button type="button" class="btn" id="wn" aria-label="Next week">›</button></div></div>
 <div class="wgrid" id="wgrid"></div>
 </section>
 <section class="view" id="view-routines" role="tabpanel" aria-labelledby="t-routines" hidden>
 <div class="card"><div class="f"><h2 id="rfh">New routine</h2><span class="chip edit" id="rfc">Editing</span></div><p class="empty" id="rfx" hidden>Editing keeps history: existing completions stay linked to this routine.</p><div class="f" style="margin-top:var(--sp-3)"><input type="text" id="rn" maxlength="120" placeholder="Routine name" aria-label="Routine name"><input type="time" id="rt" value="09:00" aria-label="Time"></div>
 <div class="f" id="rd" role="group" aria-label="Days" style="margin-top:var(--sp-3)"></div>
 <div class="f" id="racc" role="radiogroup" aria-label="Accent color" style="margin-top:var(--sp-3)"></div>
-<div class="f" style="margin-top:var(--sp-4)"><button class="btn pri" id="ra">Add routine</button><button class="btn" id="rcx" hidden>Cancel</button><button class="btn" id="rr">Reset to Default Schedule</button><span id="rm" class="empty" role="status"></span></div></div>
+<div class="f" style="margin-top:var(--sp-4)"><button type="button" class="btn pri" id="ra">Add routine</button><button type="button" class="btn" id="rcx" hidden>Cancel</button><button type="button" class="btn" id="rr">Reset to Default Schedule</button><span id="rm" class="empty" role="status"></span></div></div>
 <div class="card"><div class="f"><h2 id="rh">Routines</h2><span class="chip on" id="rc"></span></div><ul class="rl" id="rl"></ul></div>
 <div class="card" id="rarc" hidden><h2>Archived</h2><ul class="rl" id="ral"></ul></div>
 </section>
@@ -303,7 +306,7 @@ h1,h1 small,h2,.mhb,.dow span{color:#000!important}
 <section class="view" id="view-backup" role="tabpanel" aria-labelledby="t-backup" hidden>
 <div class="nudge" id="nudge" role="status" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><div class="nudge-t"><b>Time for a backup?</b><span id="nudgeTx"></span></div><div class="f"><button class="btn pri sm" id="nudgeGo" type="button">Export now</button><button class="btn sm" id="nudgeNo" type="button">Dismiss</button></div></div>
 <div class="card"><h2>Export</h2><ul class="blist"><li>Routines</li><li>Custom tasks</li><li>Completion history</li><li>Day notes</li></ul><div class="f"><button class="btn pri" id="bd" type="button">Download backup</button><button class="btn" id="bs" type="button">Share backup</button></div></div>
-<div class="card"><h2>Import</h2><p class="empty">Replaces current data after confirmation. Maximum 5 MB.</p><div class="f" style="margin-top:var(--sp-3)"><button class="btn" id="bi">Choose file</button><input type="file" id="bf" accept="application/json,.json" hidden><span id="bm" class="empty" role="status"></span></div></div>
+<div class="card"><h2>Import</h2><p class="empty">Replaces current data after confirmation. Maximum 5 MB.</p><div class="f" style="margin-top:var(--sp-3)"><button type="button" class="btn" id="bi">Choose file</button><input type="file" id="bf" accept="application/json,.json" hidden><span id="bm" class="empty" role="status"></span></div></div>
 </section>
 <section class="view" id="view-stats" role="tabpanel" aria-labelledby="t-stats" hidden>
 <div class="card"><h2>Consistency</h2><div class="hm-wrap"><div class="hm" id="hm" role="img" aria-label="Consistency heatmap"></div></div><div class="hm-leg" id="hml"></div></div>
@@ -312,15 +315,15 @@ h1,h1 small,h2,.mhb,.dow span{color:#000!important}
 <div class="card"><h2>Routine breakdown</h2><div id="bt"></div></div>
 </section>
 </main>
-<footer class="foot">Gigachad Agenda • local-first · offline-ready • v20-p8</footer></div>
+<footer class="foot">Gigachad Agenda • local-first · offline-ready • v20-p9</footer></div>
 <div class="ov" id="ov" hidden><div class="dlg" role="dialog" aria-modal="true" aria-labelledby="mt">
-<div class="mh"><h2 id="mt"></h2><button class="x" id="mx" aria-label="Close">×</button></div>
+<div class="mh"><h2 id="mt"></h2><button type="button" class="x" id="mx" aria-label="Close">×</button></div>
 <div class="prog"><span id="pl"></span><div class="track"><i id="pf"></i></div><span id="pp"></span></div>
 <ul class="tl" id="tl"></ul>
-<div class="addf"><input type="time" id="at" value="09:00" aria-label="Time"><input type="text" id="ati" maxlength="120" placeholder="New task" aria-label="Task title"><button class="btn" id="aa">Add</button></div>
-<div class="nh"><label for="nt">Note</label><span id="nc">0 / 500</span></div>
+<div class="addf"><input type="time" id="at" value="09:00" aria-label="Time"><input type="text" id="ati" maxlength="120" placeholder="New task" aria-label="Task title"><button type="button" class="btn" id="aa">Add</button></div>
+<div class="nh"><label for="nt">Note</label><span id="nc" aria-live="polite" aria-atomic="true">0 / 500</span></div>
 <textarea id="nt" maxlength="500" rows="3" placeholder="Write something about this day"></textarea>
-<div class="mf"><button class="btn" id="rsd">Reset to Default Schedule</button><button class="btn danger" id="clr">Clear day</button></div></div></div>
+<div class="mf"><button type="button" class="btn" id="rsd">Reset to Default Schedule</button><button type="button" class="btn danger" id="clr">Clear day</button></div></div></div>
 <div class="pop" id="pop" role="dialog" aria-label="Options" hidden></div>
 <div class="fbd" id="focusBackdrop" hidden><div class="fcard" role="dialog" aria-modal="true" aria-labelledby="ft">
 <div class="fk" id="fk"></div><h2 id="ft"></h2>
@@ -429,7 +432,8 @@ t.addEventListener('mouseenter',function(){clearTimeout(tid);left-=Date.now()-st
 t.addEventListener('mouseleave',function(){start=Date.now();tid=setTimeout(kill,left);t.classList.remove('hold')});
 tid=setTimeout(kill,left);while(box.children.length>=4)box.firstChild.remove();box.appendChild(t)}
 /*@@SECTION persistence@@*/
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+var saveWarn=false;
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));saveWarn=false}catch(e){if(!saveWarn){saveWarn=true;toast('Could not save changes: browser storage is full or blocked. Export a backup now.','error')}}}
 function persist(){clearTimeout(timer);timer=setTimeout(save,700)}
 addEventListener('pagehide',function(){clearTimeout(timer);save()});
 document.addEventListener('visibilitychange',function(){if(document.hidden){clearTimeout(timer);save()}});
@@ -480,9 +484,11 @@ delete S.customTasks[k];delete S.completions[k];delete S.notes[k];$('nt').value=
 toast('Day cleared.','success',function(){var o=JSON.parse(snap);if(o.c)S.customTasks[k]=o.c;if(o.m)S.completions[k]=o.m;if(o.n)S.notes[k]=o.n;persist();if(sel===k){drawDay();$('nt').value=S.notes[k]||'';noteCount()}render(false);toast('Restored — nothing was lost.','success')})};
 $('mx').onclick=closeDay;$('ov').addEventListener('mousedown',function(e){if(e.target===$('ov'))closeDay()});
 var dw=document.querySelector('.dow');['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(function(n){dw.appendChild(el('span',null,n))});
+(function(){var tl=document.querySelector('.tabs');[].forEach.call(tl.querySelectorAll('[role=tab]'),function(t){t.tabIndex=t.getAttribute('aria-selected')==='true'?0:-1});
+tl.addEventListener('keydown',function(e){var t=[].slice.call(tl.querySelectorAll('[role=tab]')),i=t.indexOf(document.activeElement);if(i<0)return;var n=e.key==='ArrowRight'?(i+1)%t.length:e.key==='ArrowLeft'?(i-1+t.length)%t.length:e.key==='Home'?0:e.key==='End'?t.length-1:-1;if(n<0)return;e.preventDefault();t[n].focus();t[n].click()})})();
 function navFade(){var t=document.querySelector('.tabs');t.classList.toggle('is-scrollable',t.scrollWidth>t.clientWidth+1&&t.scrollLeft+t.clientWidth<t.scrollWidth-1)}
 /*@@SECTION views@@*/
-function showView(n){['calendar','week','routines','background','backup','stats'].forEach(function(v){$('view-'+v).hidden=v!==n;$('t-'+v).setAttribute('aria-selected',v===n?'true':'false')});if(n==='calendar')render(true);if(n==='routines')drawR();if(n==='week')drawW();if(n==='stats')drawStats();if(n==='background')bgPaint()}
+function showView(n){['calendar','week','routines','background','backup','stats'].forEach(function(v){$('view-'+v).hidden=v!==n;$('t-'+v).setAttribute('aria-selected',v===n?'true':'false');$('t-'+v).tabIndex=v===n?0:-1});if(n==='calendar')render(true);if(n==='routines')drawR();if(n==='week')drawW();if(n==='stats')drawStats();if(n==='background')bgPaint()}
 ['calendar','week','routines','background','backup','stats'].forEach(function(v){$('t-'+v).onclick=function(){showView(v)}});
 ['S','M','T','W','T','F','S'].forEach(function(l,i){var b=el('button','dayb',l);b.type='button';b.setAttribute('aria-pressed','false');b.setAttribute('aria-label',DW[i]);b.onclick=function(){var on=b.getAttribute('aria-pressed')!=='true';b.setAttribute('aria-pressed',on?'true':'false');var j=newDays.indexOf(i);if(on&&j<0)newDays.push(i);if(!on&&j>=0)newDays.splice(j,1)};$('rd').appendChild(b)});
 /*@@SECTION routines@@*/
