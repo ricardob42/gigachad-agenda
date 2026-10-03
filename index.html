@@ -224,6 +224,11 @@ input[type=text],input[type=time],input[type=date]{min-height:40px;padding:0 var
 .lock{display:flex;gap:var(--sp-2);align-items:center;margin-top:var(--sp-4)}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 @media (prefers-reduced-motion:reduce){.bgimg{transition:none}}
+.nudge{display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap;margin-top:var(--sp-4);padding:var(--sp-4);border-radius:var(--r-lg);border:1px solid rgba(245,158,11,.5);background:linear-gradient(rgba(245,158,11,.08),rgba(245,158,11,.08)),var(--glass)}
+.nudge[hidden]{display:none}.nudge svg{color:var(--amber);flex:none}.nudge-t{flex:1;min-width:200px}.nudge-t b{display:block;font-weight:600}.nudge-t span{color:var(--tx2);font-size:14px}
+.tdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--amber);margin-left:var(--sp-2);vertical-align:middle}.tdot[hidden]{display:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.blist{margin:var(--sp-2) 0 var(--sp-3);padding-left:var(--sp-5);color:var(--tx2)}
 /*@@RESPONSIVE@@*/
 @media (max-width:700px){.bgcards{grid-template-columns:1fr}}
 @media (max-width:700px){#pesc,.pft,.pbtn kbd{display:none}.pal{padding-top:calc(var(--sp-4) + env(safe-area-inset-top,0px))}}
@@ -242,7 +247,7 @@ input[type=text],input[type=time],input[type=date]{min-height:40px;padding:0 var
 <div class="app">
 <header class="top"><div class="logo" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M9 15l2 2 4-4"/></svg></div>
 <div class="brand"><b>Gigachad Agenda</b><span>Local-first routine calendar</span></div><button class="btn pbtn" id="pbtn" type="button" aria-label="Open command palette"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><kbd>Ctrl K</kbd></button></header>
-<nav class="tabs" role="tablist" aria-label="Views"><button class="tab" role="tab" id="t-calendar" aria-controls="view-calendar" aria-selected="true">Calendar</button><button class="tab" role="tab" id="t-week" aria-controls="view-week" aria-selected="false">Week</button><button class="tab" role="tab" id="t-routines" aria-controls="view-routines" aria-selected="false">Routines</button><button class="tab" role="tab" id="t-background" aria-controls="view-background" aria-selected="false">Background</button><button class="tab" role="tab" id="t-backup" aria-controls="view-backup" aria-selected="false">Backup</button><button class="tab" role="tab" id="t-stats" aria-controls="view-stats" aria-selected="false">Stats</button></nav>
+<nav class="tabs" role="tablist" aria-label="Views"><button class="tab" role="tab" id="t-calendar" aria-controls="view-calendar" aria-selected="true">Calendar</button><button class="tab" role="tab" id="t-week" aria-controls="view-week" aria-selected="false">Week</button><button class="tab" role="tab" id="t-routines" aria-controls="view-routines" aria-selected="false">Routines</button><button class="tab" role="tab" id="t-background" aria-controls="view-background" aria-selected="false">Background</button><button class="tab" role="tab" id="t-backup" aria-controls="view-backup" aria-selected="false">Backup<span class="tdot" id="tdot" aria-hidden="true" hidden></span><span class="sr" id="tdotsr" hidden>, backup due</span></button><button class="tab" role="tab" id="t-stats" aria-controls="view-stats" aria-selected="false">Stats</button></nav>
 <main>
 <section class="view" id="view-calendar" role="tabpanel" aria-labelledby="t-calendar">
 <div class="bar"><h1 id="mh" aria-live="polite"></h1><span class="chip" id="tc">Not the current month</span>
@@ -271,7 +276,8 @@ input[type=text],input[type=time],input[type=date]{min-height:40px;padding:0 var
 <p class="empty lock"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Stored locally in your browser only — never uploaded to any server.</p>
 </section>
 <section class="view" id="view-backup" role="tabpanel" aria-labelledby="t-backup" hidden>
-<div class="card"><h2>Export</h2><p class="empty">Routines, custom tasks, completion history and day notes, as one JSON file.</p><div class="f" style="margin-top:var(--sp-3)"><button class="btn pri" id="bd">Download backup</button></div></div>
+<div class="nudge" id="nudge" role="status" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><div class="nudge-t"><b>Time for a backup?</b><span id="nudgeTx"></span></div><div class="f"><button class="btn pri sm" id="nudgeGo" type="button">Export now</button><button class="btn sm" id="nudgeNo" type="button">Dismiss</button></div></div>
+<div class="card"><h2>Export</h2><ul class="blist"><li>Routines</li><li>Custom tasks</li><li>Completion history</li><li>Day notes</li></ul><div class="f"><button class="btn pri" id="bd" type="button">Download backup</button><button class="btn" id="bs" type="button">Share backup</button></div></div>
 <div class="card"><h2>Import</h2><p class="empty">Replaces current data after confirmation. Maximum 5 MB.</p><div class="f" style="margin-top:var(--sp-3)"><button class="btn" id="bi">Choose file</button><input type="file" id="bf" accept="application/json,.json" hidden><span id="bm" class="empty" role="status"></span></div></div>
 </section>
 <section class="view" id="view-stats" role="tabpanel" aria-labelledby="t-stats" hidden>
@@ -281,7 +287,7 @@ input[type=text],input[type=time],input[type=date]{min-height:40px;padding:0 var
 <div class="card"><h2>Routine breakdown</h2><div id="bt"></div></div>
 </section>
 </main>
-<footer class="foot">Gigachad Agenda • local-first · offline-ready • v20-p6</footer></div>
+<footer class="foot">Gigachad Agenda • local-first · offline-ready • v20-p7</footer></div>
 <div class="ov" id="ov" hidden><div class="dlg" role="dialog" aria-modal="true" aria-labelledby="mt">
 <div class="mh"><h2 id="mt"></h2><button class="x" id="mx" aria-label="Close">×</button></div>
 <div class="prog"><span id="pl"></span><div class="track"><i id="pf"></i></div><span id="pp"></span></div>
@@ -378,6 +384,11 @@ var BG_CACHE='gigachad-agenda-backgrounds-v1',BG_MAX=12*1024*1024;
 function bgKind(w){return w<=700?'mobile':'desktop'}
 function bgPath(kind){return '/__gigachad-agenda-background__/'+(kind==='mobile'?'mobile':'desktop')}
 function bgFileOK(f){return !!f&&typeof f.size==='number'&&f.size>0&&f.size<=BG_MAX&&(typeof f.type!=='string'||f.type===''||f.type.indexOf('image/')===0)}
+var NUDGE_KEY='gigachad-agenda-backup-nudge-v1',NUDGE_DAYS=14,DAY_MS=86400000;
+function nudgeClean(raw){var o=null,r={firstSeen:null,lastExport:null,lastDismiss:null};try{o=typeof raw==='string'?JSON.parse(raw):raw}catch(e){}if(!isObj(o))return r;['firstSeen','lastExport','lastDismiss'].forEach(function(k){var v=o[k];if(typeof v==='number'&&isFinite(v)&&v>0)r[k]=v});return r}
+function hasMeaningfulData(s){return s.routines.length>0||Object.keys(s.customTasks).length>0||Object.keys(s.completions).length>0||Object.keys(s.notes).length>0}
+function nudgeDue(n,now,has){var ref=Math.max(n.lastExport||0,n.lastDismiss||0)||n.firstSeen||0;if(!has||!ref)return false;return now-ref>=NUDGE_DAYS*DAY_MS}
+function nudgeText(n,now){var t;if(n.lastExport){var d=Math.max(0,Math.floor((now-n.lastExport)/DAY_MS));t='Your last backup was '+d+' day'+(d===1?'':'s')+' ago.'}else t='You have not exported a backup yet.';return t+' Download a copy so your routines and history stay safe.'}
 /*@@ENDPURE@@*/
 /*@@SECTION toast@@*/
 var ESC=[];function escReg(p,o,c){ESC.push({p:p,o:o,c:c});ESC.sort(function(a,b){return a.p-b.p})}
@@ -407,7 +418,7 @@ if(st.n>0)b.appendChild(el('span','fill'));var dd=el('span','d',String(d.getDate
 st.t.slice(0,3).forEach(function(x){var p=el('span','pill'+(st.c[x.id]?' done':'')+(x.acc?' a-'+x.acc:''));p.appendChild(el('i',null,x.time));p.appendChild(el('em',null,x.title));b.appendChild(p)});
 if(T>3)b.appendChild(el('span','more','+'+(T-3)+' more'));if(T)b.appendChild(el('span','badge',st.n+'/'+T));
 if(isT&&inM)fi=i;g.appendChild(b);cells.push(b)}
-if(fi<0)fi=cells.findIndex(function(c){return !c.classList.contains('out')});cells[fi].tabIndex=0;drawW();drawS()}
+if(fi<0)fi=cells.findIndex(function(c){return !c.classList.contains('out')});cells[fi].tabIndex=0;drawW();drawS();nudgeTouch()}
 function setFocus(i){cells.forEach(function(c){c.tabIndex=-1});cells[i].tabIndex=0;cells[i].focus()}
 $('grid').addEventListener('click',function(e){var b=e.target.closest('.cell');if(b)openDay(b.dataset.k,b)});
 $('grid').addEventListener('keydown',function(e){var b=e.target.closest('.cell');if(!b)return;var i=cells.indexOf(b),n;
@@ -644,8 +655,23 @@ var p=el('div','bp');p.setAttribute('role','cell');p.appendChild(el('span',null,
 var e=el('div','ba',String(x.all));e.setAttribute('role','cell');rw.appendChild(a);rw.appendChild(b);rw.appendChild(p);rw.appendChild(e);bd.appendChild(rw)});w.appendChild(bd);bt.appendChild(w)}
 /*@@SECTION backup@@*/
 function bmsg(t){$('bm').textContent=t}
-$('bd').onclick=function(){var o={format:'gigachad-agenda-backup',version:1,app:'Gigachad Agenda',storageKey:KEY,exportedAt:new Date().toISOString(),routines:S.routines,customTasks:S.customTasks,completions:S.completions,notes:S.notes};
-var u=URL.createObjectURL(new Blob([JSON.stringify(o,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=u;a.download='gigachad-agenda-backup-'+key(new Date())+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},1000)};
+function backupFile(){var o={format:'gigachad-agenda-backup',version:1,app:'Gigachad Agenda',storageKey:KEY,exportedAt:new Date().toISOString(),routines:S.routines,customTasks:S.customTasks,completions:S.completions,notes:S.notes};return{json:JSON.stringify(o,null,2),name:'gigachad-agenda-backup-'+key(new Date())+'.json'}}
+function downloadBackup(){var b=backupFile(),u=URL.createObjectURL(new Blob([b.json],{type:'application/json'})),a=document.createElement('a');a.href=u;a.download=b.name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},1000);markExport();toast('Backup downloaded.','success')}
+$('bd').onclick=downloadBackup;
+$('bs').onclick=function(){var b=backupFile(),file=null,withFile=false;
+if(!navigator.share){downloadBackup();bmsg('Sharing is not available here. The backup was downloaded instead.');return}
+try{file=new File([b.json],b.name,{type:'application/json'});withFile=!!(navigator.canShare&&navigator.canShare({files:[file]}))}catch(e){withFile=false}
+var d={title:'Gigachad Agenda backup'};if(withFile)d.files=[file];else d.text=b.json;
+navigator.share(d).then(function(){markExport();toast('Backup shared.','success')}).catch(function(err){if(err&&err.name==='AbortError'){toast('Share cancelled.','info');return}downloadBackup();toast('Sharing failed. The backup was downloaded instead.','info')})};
+/*@@SECTION nudge@@*/
+var nudge=(function(){try{return nudgeClean(localStorage.getItem(NUDGE_KEY))}catch(e){return nudgeClean(null)}})();
+function nudgeSave(){try{localStorage.setItem(NUDGE_KEY,JSON.stringify(nudge))}catch(e){}}
+function nudgeUI(){var now=Date.now(),due=nudgeDue(nudge,now,hasMeaningfulData(S));$('nudge').hidden=!due;$('tdot').hidden=!due;$('tdotsr').hidden=!due;if(due)$('nudgeTx').textContent=nudgeText(nudge,now)}
+function nudgeTouch(){if(!nudge.firstSeen&&hasMeaningfulData(S)){nudge.firstSeen=Date.now();nudgeSave()}nudgeUI()}
+function markExport(){nudge.lastExport=Date.now();nudgeSave();nudgeUI()}
+$('nudgeGo').onclick=function(){$('bd').click()};
+$('nudgeNo').onclick=function(){nudge.lastDismiss=Date.now();nudgeSave();nudgeUI();toast('Reminder snoozed for 14 days.','info')};
+
 $('bi').onclick=function(){$('bf').click()};
 function importText(t,n){var o;if(n>5242880){bmsg('File exceeds 5 MB.');return}try{o=JSON.parse(t)}catch(e){bmsg('Not valid JSON.');return}
 if(!isObj(o)||o.format!=='gigachad-agenda-backup'||o.version!==1||o.storageKey!==KEY||!Array.isArray(o.routines)||!isObj(o.customTasks)||!isObj(o.completions)||(o.notes!==undefined&&!isObj(o.notes))){bmsg('Invalid backup file.');return}
