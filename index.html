@@ -107,7 +107,7 @@ input[type=text],input[type=time],input[type=date]{min-height:40px;padding:0 var
 .tabs.is-scrollable{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 24px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 24px),transparent)}
 .toasts{position:fixed;left:0;right:0;bottom:calc(var(--sp-4) + env(safe-area-inset-bottom,0px));z-index:40;display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);padding:0 var(--sp-3);pointer-events:none}
 .toast{pointer-events:auto;position:relative;overflow:hidden;display:flex;align-items:center;gap:var(--sp-3);max-width:min(420px,100%);padding:var(--sp-3) var(--sp-4);border-radius:var(--r-md);border:1px solid var(--bd2);background:rgba(15,20,33,.94);box-shadow:inset 0 1px 0 var(--hl);font-size:14px;animation:tin .25s both;transition:opacity .2s}
-.toast.out{opacity:0}
+.toast.out{pointer-events:none;opacity:0}
 .ti{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;flex:none;font-size:13px;font-weight:700;background:var(--s3);color:var(--tx)}
 .toast.success .ti{background:var(--s3);color:var(--tx)}
 .toast.error .ti{background:rgba(245,158,11,.18);color:var(--amber)}
@@ -253,6 +253,8 @@ input[type=text],input[type=time],input[type=date]{min-height:40px;padding:0 var
 @media (orientation:landscape) and (max-height:500px){.top{position:static}.bar{margin:var(--sp-3) 0 var(--sp-2)}.cell{min-height:44px}.pill,.more{display:none}.badge{display:block}.dlg,.fcard{max-height:calc(100dvh - 16px)}.pbox{max-height:calc(100dvh - 32px)}.pal{padding-top:var(--sp-3)}.pbtn kbd{display:none}.fring{width:140px;height:140px}.ftime{font-size:30px}}
 @media (max-width:700px){.dayb,.sw{width:44px;height:44px}.tab,.wrow,.whead,.mgrid .pi,.ystep .pi,.fdur button{min-height:44px}}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}.row .box{animation:none!important}}
+@media (max-width:700px){.ft-mid{display:none}}
+@media (max-width:700px){.ri{flex-wrap:wrap}.ri .n{flex:1 1 140px;min-width:0}.ri .ra{flex:1 1 100%;justify-content:flex-start}}
 @page{margin:12mm}
 @media print{
 :root{color-scheme:light}
@@ -282,7 +284,7 @@ h1,h1 small,h2,.mhb,.dow span{color:#000!important}
 <div class="nav"><button type="button" class="btn" id="pv" aria-label="Previous month">‹</button><button type="button" class="btn" id="td">Today</button><button type="button" class="btn" id="nx" aria-label="Next month">›</button></div></div>
 <div class="dow" aria-hidden="true"></div>
 <div class="grid" id="grid" role="grid" aria-label="Month calendar"></div>
-<p class="key"><i></i> Fill shows the share of the day's tasks done. A run of full cells is a streak.<span class="hint"><kbd>←</kbd> <kbd>→</kbd> months · <kbd>T</kbd> today</span></p>
+<p class="key"><i></i> Fill shows the share of the day's tasks done. A run of full cells is a streak.<span class="hint"><kbd>←</kbd> <kbd>→</kbd> months · <kbd>T</kbd> today · <kbd>Ctrl K</kbd> commands</span></p>
 </section>
 <section class="view" id="view-week" role="tabpanel" aria-labelledby="t-week" hidden>
 <div class="bar"><h1 id="wh" aria-live="polite"></h1><span class="chip" id="wc"></span><div class="nav"><button type="button" class="btn" id="wp" aria-label="Previous week">‹</button><button type="button" class="btn" id="wt">Today</button><button type="button" class="btn" id="wn" aria-label="Next week">›</button></div></div>
@@ -315,7 +317,7 @@ h1,h1 small,h2,.mhb,.dow span{color:#000!important}
 <div class="card"><h2>Routine breakdown</h2><div id="bt"></div></div>
 </section>
 </main>
-<footer class="foot">Gigachad Agenda • local-first · offline-ready • v20-p9</footer></div>
+<footer class="foot"><span>Gigachad Agenda</span><span class="ft-mid"> • local-first · offline-ready</span><span> • v20</span></footer></div>
 <div class="ov" id="ov" hidden><div class="dlg" role="dialog" aria-modal="true" aria-labelledby="mt">
 <div class="mh"><h2 id="mt"></h2><button type="button" class="x" id="mx" aria-label="Close">×</button></div>
 <div class="prog"><span id="pl"></span><div class="track"><i id="pf"></i></div><span id="pp"></span></div>
@@ -427,16 +429,17 @@ escReg(50,function(){return !$('ov').hidden},function(){closeDay()});
 function toast(msg,type,undo){var box=$('toasts'),t=el('div','toast '+(type||'info')),left=undo?6000:3500,start=Date.now(),tid,gone=false;
 t.appendChild(el('span','ti',type==='success'?'✓':type==='error'?'!':'i'));t.appendChild(el('span','tmsg',msg));
 function kill(){if(gone)return;gone=true;clearTimeout(tid);t.classList.add('out');setTimeout(function(){t.remove()},200)}
-if(undo){var b=el('button','tu','Undo');b.type='button';b.onclick=function(){kill();undo()};t.appendChild(b);t.appendChild(el('i','tb'))}
+if(undo){var b=el('button','tu','Undo');b.type='button';b.onclick=function(){if(gone)return;kill();undo()};t.appendChild(b);t.appendChild(el('i','tb'))}
 t.addEventListener('mouseenter',function(){clearTimeout(tid);left-=Date.now()-start;t.classList.add('hold')});
 t.addEventListener('mouseleave',function(){start=Date.now();tid=setTimeout(kill,left);t.classList.remove('hold')});
 tid=setTimeout(kill,left);while(box.children.length>=4)box.firstChild.remove();box.appendChild(t)}
 /*@@SECTION persistence@@*/
-var saveWarn=false;
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S));saveWarn=false}catch(e){if(!saveWarn){saveWarn=true;toast('Could not save changes: browser storage is full or blocked. Export a backup now.','error')}}}
-function persist(){clearTimeout(timer);timer=setTimeout(save,700)}
-addEventListener('pagehide',function(){clearTimeout(timer);save()});
-document.addEventListener('visibilitychange',function(){if(document.hidden){clearTimeout(timer);save()}});
+var saveWarn=false,dirty=false;
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));saveWarn=false;dirty=false}catch(e){if(!saveWarn){saveWarn=true;toast('Could not save changes: browser storage is full or blocked. Export a backup now.','error')}}}
+function persist(){dirty=true;clearTimeout(timer);timer=setTimeout(save,700)}
+addEventListener('pagehide',function(){clearTimeout(timer);if(dirty)save()});
+document.addEventListener('visibilitychange',function(){if(document.hidden){clearTimeout(timer);if(dirty)save()}});
+addEventListener('storage',function(e){if((e.key!==null&&e.key!==KEY)||dirty)return;var raw=null,o=null;try{raw=localStorage.getItem(KEY)}catch(x){return}S=blank();if(raw!=null){try{o=JSON.parse(raw)}catch(x){}if(isObj(o))S=clean(o)}render(false);drawR();if(sel)drawDay()});
 function load(){var raw=null,o=null;try{raw=localStorage.getItem(KEY)}catch(e){return}if(raw==null)return;try{o=JSON.parse(raw)}catch(e){}if(!isObj(o)){S=blank();save();return}S=clean(o)}
 /*@@SECTION calendar@@*/
 function tasks(d){var k=key(d),w=d.getDay(),a=[],c=S.customTasks[k]||{};S.routines.forEach(function(r){if(!r.archived&&r.days.indexOf(w)>=0)a.push({id:'routine:'+r.id+':'+k,time:r.time,title:r.name,custom:false,acc:r.accent,tag:autoTag(r.name,w)})});Object.keys(c).forEach(function(i){a.push({id:i,time:c[i].time,title:c[i].title,custom:true,tag:autoTag(c[i].title,w)})});a.sort(function(x,y){return x.time<y.time?-1:x.time>y.time?1:0});return a}
