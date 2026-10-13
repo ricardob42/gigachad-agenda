@@ -14,9 +14,11 @@
     const days = Array.from({ length: 44 }, (_, i) => addD(start, i - 1)); // one extra day each side for streak runs
     const full = days.map((d) => { const r = dayRatio(app.data, d); return r.t > 0 && r.n === r.t; });
     return Array.from({ length: 42 }, (_, i) => {
-      const d = days[i + 1], k = key(d), st = dayStat(app.data, d), T = st.t.length;
-      const label = `${DW[d.getDay()]}, ${MON[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}${T ? ` — ${st.n} of ${T} done` : ' — no tasks'}${app.data.notes[k] ? ', has note' : ''}`;
-      return { d, k, st, T, label, inM: d.getMonth() === m, isT: +d === +app.today, full: full[i + 1], run: full[i + 1] && (full[i] || full[i + 2]) };
+      const d = days[i + 1], k = key(d), st = dayStat(app.data, d), T = st.t.length, A = st.active;
+      const rest = !A && st.ex > 0;
+      const status = !T ? 'no tasks' : rest ? 'rest day' : `${st.n} of ${A} done${st.ex ? `, ${st.ex} excused` : ''}`;
+      const label = `${DW[d.getDay()]}, ${MON[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} — ${status}${app.data.notes[k] ? ', has note' : ''}`;
+      return { d, k, st, T, A, rest, label, inM: d.getMonth() === m, isT: +d === +app.today, full: full[i + 1], run: full[i + 1] && (full[i] || full[i + 2]) };
     });
   });
   const defIdx = $derived.by(() => {
@@ -93,26 +95,26 @@
     <div class="grid enter" role="grid" aria-label="Month calendar" onkeydown={gridKey}>
       {#each cells as c, i (c.k)}
         <button
-          type="button" class="cell" class:out={!c.inM} class:today={c.isT} class:full={c.full} class:run={c.run}
-          data-i={i} data-k={c.k} style:--i={i} style:--p={c.T ? c.st.n / c.T : 0}
+          type="button" class="cell" class:out={!c.inM} class:today={c.isT} class:full={c.full} class:rest={c.rest} class:run={c.run}
+          data-i={i} data-k={c.k} style:--i={i} style:--p={c.A ? c.st.n / c.A : 0}
           aria-label={c.label} tabindex={i === tabIdx ? 0 : -1} onclick={() => openDay(c.k)}
         >
           {#if c.st.n > 0}<span class="fill"></span>{/if}
           <span class="d"><span class="n">{c.d.getDate()}</span>{#if app.data.notes[c.k]}<i class="pen" title="Has note"></i>{/if}</span>
           {#each c.st.t.slice(0, 3) as x (x.id)}
-            <span class="pill {x.acc ? 'a-' + x.acc : x.tag ? 'tg-' + x.tag : ''}" class:done={c.st.c[x.id]}>
+            <span class="pill {x.acc ? 'a-' + x.acc : x.tag ? 'tg-' + x.tag : ''}" class:done={x.state === 'done'} class:ex={x.state === 'excused'}>
               <i>{x.time}</i><em>{x.title}</em>
             </span>
           {/each}
           {#if c.T > 3}<span class="more">+{c.T - 3} more</span>{/if}
-          {#if c.T}<span class="badge">{c.st.n}/{c.T}</span>{/if}
+          {#if c.T}<span class="badge">{c.rest ? 'rest' : `${c.st.n}/${c.A}`}</span>{/if}
         </button>
       {/each}
     </div>
   {/key}
 
   <p class="key">
-    <i class="sw"></i> Fill shows the share of the day's tasks done. A run of full cells is a streak.
+    <i class="sw"></i> Fill shows the share of the day's tasks done. A run of full cells is a streak. Striped days are rest days: they neither count nor break a streak.
     <span class="hint"><kbd>←</kbd> <kbd>→</kbd> months · <kbd>T</kbd> today · <kbd>Ctrl K</kbd> commands</span>
   </p>
 </section>
@@ -171,6 +173,8 @@
   .pill i { font: 500 10.5px/20px var(--font-mono); color: var(--tx2); }
   .pill em { font-style: normal; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .pill.done { color: var(--tx2); } .pill.done em { text-decoration: line-through; }
+  .pill.ex { opacity: .6; border-left-style: dashed; } .pill.ex em { font-style: italic; }
+  .cell.rest { background: repeating-linear-gradient(-45deg, var(--surface) 0 6px, var(--surface-2) 6px 12px); } .cell.rest .n { color: var(--tx2); }
   .more { font-size: 11px; color: var(--tx2); }
   .badge { display: none; font: 500 11px var(--font-mono); color: var(--tx2); }
 

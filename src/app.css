@@ -131,12 +131,15 @@ kbd { font: 500 11.5px var(--font-mono); padding: 1px var(--sp-2); border-radius
   width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--line-ctl); display: grid; place-items: center; flex: none; color: transparent;
   transition: background .2s, border-color .2s;
 }
-.row[aria-pressed='true'] .box { background: var(--ac, var(--good)); border-color: var(--ac, var(--good)); color: var(--on-accent); animation: pop .3s var(--ease); }
-.row[aria-pressed='true'] .t { color: var(--tx2); text-decoration: line-through; text-decoration-thickness: 1px; }
+.row[aria-checked='true'] .box { background: var(--ac, var(--good)); border-color: var(--ac, var(--good)); color: var(--on-accent); animation: pop .3s var(--ease); }
+.row[aria-checked='true'] .t { color: var(--tx2); text-decoration: line-through; text-decoration-thickness: 1px; }
 .row .tm { font: 500 13px var(--font-mono); color: var(--tx2); }
 .row .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row .src { font-size: 12px; color: var(--tx2); }
 @keyframes pop { 50% { transform: scale(1.25); } }
+.row[aria-checked='mixed'] { border-style: dashed; background: repeating-linear-gradient(-45deg, var(--surface) 0 8px, var(--surface-2) 8px 16px); }
+.row[aria-checked='mixed'] .box { border-style: dashed; color: var(--tx2); }
+.row[aria-checked='mixed'] .t { color: var(--tx2); font-style: italic; }
 
 /* Entrance animations */
 .view { animation: view-in .4s var(--ease) both; }

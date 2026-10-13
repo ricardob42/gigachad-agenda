@@ -70,7 +70,7 @@
     {:else if app.tab === 'stats'}<StatsView />
     {/if}
   </main>
-  <footer class="foot"><span>Gigachad Agenda</span><span class="mid"> • local-first · offline-ready</span><span> • v21</span></footer>
+  <footer class="foot"><span>Gigachad Agenda</span><span class="mid"> • local-first · offline-ready</span><span> • v22</span></footer>
 </div>
 
 {#if app.day}{#key app.day}<DayModal />{/key}{/if}

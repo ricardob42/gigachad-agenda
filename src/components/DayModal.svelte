@@ -1,15 +1,17 @@
 <script>
   import { fade } from 'svelte/transition';
   import Icon from './Icon.svelte';
-  import { app, closeDay, toggleDone, addTask, deleteTask, clearDay, setNote, moveTo, loadStarter } from '../lib/store.svelte.js';
+  import { app, closeDay, cycleTask, addTask, deleteTask, clearDay, setNote, moveTo, loadStarter, excuseRange } from '../lib/store.svelte.js';
   import { openFocus } from '../lib/focus.svelte.js';
   import { modal } from '../lib/actions.js';
-  import { DW, MON, parse, dayStat, addD, key, validDate } from '../lib/logic.js';
+  import { DW, MON, parse, dayStat, addD, key, validDate, STATE_TEXT } from '../lib/logic.js';
 
   const k = app.day; // the modal is re-created per day via {#key}
   const d = parse(k);
   const st = $derived(dayStat(app.data, d));
-  const pct = $derived(st.t.length ? (st.n / st.t.length) * 100 : 0);
+  const pct = $derived(st.active ? (st.n / st.active) * 100 : 0);
+  const canExcuse = $derived(st.t.some((x) => !x.custom && x.state === 'open'));
+  const checked = (x) => (x.state === 'done' ? 'true' : x.state === 'excused' ? 'mixed' : 'false');
 
   let time = $state('09:00'), title = $state(''), note = $state(app.data.notes[k] || '');
   let moving = $state(null), moveDate = $state(''), titleEl;
@@ -29,7 +31,8 @@
     moveTo(k, id, moveDate);
   }
   function onNote(e) { note = e.currentTarget.value; setNote(k, note); }
-  async function clear() { if (clearDay(k)) note = ''; }
+  function clear() { if (clearDay(k)) note = ''; }
+  function excuse() { excuseRange(k, k); }
 </script>
 
 <div class="ov" transition:fade|global={{ duration: 140 }} onmousedown={(e) => { if (e.target === e.currentTarget) closeDay(); }} role="presentation">
@@ -40,20 +43,27 @@
     </div>
 
     <div class="prog" aria-live="polite">
-      <span>{st.n} of {st.t.length} done</span>
+      <span>
+        {#if st.active}{st.n} of {st.active} done{:else if st.ex}Rest day{:else}No tasks{/if}{#if st.active && st.ex}, {st.ex} excused{/if}
+      </span>
       <div class="track"><i style:width="{pct}%"></i></div>
-      <span>{Math.round(pct)}%</span>
+      <span>{st.active ? `${Math.round(pct)}%` : ''}</span>
     </div>
 
     <ul class="tl">
       {#if !st.t.length}<li class="empty">No tasks for this day.</li>{/if}
       {#each st.t as x (x.id)}
         <li>
-          <button type="button" class="row {x.acc ? 'a-' + x.acc : ''}" aria-pressed={!!st.c[x.id]} onclick={() => toggleDone(k, x.id)}>
-            <span class="box"><Icon name="check" size={14} stroke={3} /></span>
+          <button
+            type="button" class="row {x.acc ? 'a-' + x.acc : ''}" role="checkbox" aria-checked={checked(x)}
+            aria-label="{x.title}, {x.time}, {STATE_TEXT[x.state]}" onclick={() => cycleTask(k, x.id)}
+          >
+            <span class="box">
+              {#if x.state === 'done'}<Icon name="check" size={14} stroke={3} />{:else if x.state === 'excused'}<Icon name="rest" size={13} stroke={2.4} />{/if}
+            </span>
             <span class="tm">{x.time}</span>
             <span class="t">{x.title}</span>
-            {#if !x.custom}<span class="src">Routine</span>{/if}
+            <span class="src">{x.ex ? 'Excused' : x.custom ? '' : 'Routine'}</span>
           </button>
           <button type="button" class="x" aria-label="Start a focus timer for {x.title}" onclick={() => openFocus(k, x.id, x.title)}><Icon name="focus" size={18} /></button>
           {#if x.custom}
@@ -69,6 +79,7 @@
         </li>
       {/each}
     </ul>
+    <p class="hint">Tap a task to cycle: not done, done, excused. Excused tasks are not counted as missed and keep your streak.</p>
 
     <div class="addf">
       <input type="time" bind:value={time} aria-label="Time" />
@@ -80,8 +91,11 @@
     <textarea id="day-note" maxlength="500" rows="3" placeholder="Write something about this day" value={note} oninput={onNote}></textarea>
 
     <div class="mf">
+      <div class="f">
+        <button type="button" class="btn" disabled={!canExcuse} onclick={excuse}>Excuse routines</button>
+        <button type="button" class="btn danger" onclick={clear}>Clear day</button>
+      </div>
       <button type="button" class="btn" onclick={loadStarter}>Reset to Default Schedule</button>
-      <button type="button" class="btn danger" onclick={clear}>Clear day</button>
     </div>
   </div>
 </div>
@@ -101,10 +115,11 @@
   .prog { display: flex; align-items: center; gap: var(--sp-3); margin: var(--sp-4) 0; font: 500 12.5px var(--font-mono); color: var(--tx2); }
   .track { flex: 1; height: 6px; border-radius: 9px; background: var(--surface-3); overflow: hidden; }
   .track i { display: block; height: 100%; background: var(--good); border-radius: 9px; transition: width .4s var(--ease); }
-  .tl { list-style: none; margin: 0 0 var(--sp-4); padding: 0; display: grid; gap: var(--sp-2); }
+  .tl { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
   .tl li { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
   .tl li .row { flex: 1; min-width: 0; width: auto; }
   .tl li.empty { display: block; }
+  .hint { margin: var(--sp-2) 0 var(--sp-4); font-size: 12.5px; color: var(--tx2); }
   .mv { flex-basis: 100%; display: flex; gap: var(--sp-2); padding: var(--sp-2); border-radius: var(--r-sm); background: var(--surface-2); animation: up .2s both; }
   .mv input { flex: 1; min-width: 0; }
   .addf { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-4); }

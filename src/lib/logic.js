@@ -29,6 +29,9 @@ export const STARTER = [
   ['sat-recovery', 'Active Recovery', '09:00', 6], ['sat-web', 'Web Projects', '11:00', 6], ['sat-portfolio', 'Portfolio Development', '15:00', 6],
 ];
 
+/** Labels for the three task states, used in aria-labels. */
+export const STATE_TEXT = { open: 'not done', done: 'done', excused: 'excused, not counted as missed' };
+
 export const THEMES = [
   { id: 'ink', name: 'Ink', color: '#0c0d10', accent: '#d7f25c' },
   { id: 'aurora', name: 'Aurora', color: '#071017', accent: '#5eead4' },
@@ -67,7 +70,7 @@ export function cid() {
 }
 /** Returns o[k], creating it first. Re-reads after assigning so callers get the reactive proxy, not the raw object. */
 export function slot(o, k) { if (!o[k]) o[k] = {}; return o[k]; }
-export const blank = () => ({ customTasks: {}, completions: {}, routines: [], notes: {} });
+export const blank = () => ({ customTasks: {}, completions: {}, excused: {}, routines: [], notes: {} });
 const cleanDays = (a) => { const days = []; (Array.isArray(a) ? a : []).forEach((d) => { if (Number.isInteger(d) && d >= 0 && d <= 6 && !days.includes(d)) days.push(d); }); return days; };
 
 /** Validates and normalises untrusted data (localStorage, imports). */
@@ -95,10 +98,18 @@ export function clean(o) {
     if (!validDate(k) || !isObj(v)) return;
     own(v, (id, b) => { if (b === true && id.length <= 160) slot(s.completions, k)[id] = true; });
   });
+  if (isObj(o.excused)) own(o.excused, (k, v) => {
+    if (!validDate(k) || !isObj(v)) return;
+    own(v, (id, b) => { if (b === true && id.length <= 160) slot(s.excused, k)[id] = true; });
+  });
+  // A task is either done or excused, never both. Excused wins.
+  own(s.excused, (k, v) => own(v, (id) => { if (s.completions[k]) delete s.completions[k][id]; }));
+  own(s.completions, (k) => tidyDay(s, k));
+  own(s.excused, (k) => tidyDay(s, k));
   if (isObj(o.notes)) own(o.notes, (k, v) => { if (validDate(k) && typeof v === 'string' && v) s.notes[k] = v.slice(0, 500); });
   return s;
 }
-export const hasMeaningfulData = (s) => s.routines.length > 0 || Object.keys(s.customTasks).length > 0 || Object.keys(s.completions).length > 0 || Object.keys(s.notes).length > 0;
+export const hasMeaningfulData = (s) => s.routines.length > 0 || Object.keys(s.customTasks).length > 0 || Object.keys(s.completions).length > 0 || Object.keys(s.notes).length > 0 || Object.keys(s.excused).length > 0;
 
 /* ---------- routines ---------- */
 export const freqLabel = (r) => `${r.days.length} ${r.days.length === 1 ? 'day' : 'days'}/wk`;
@@ -128,25 +139,77 @@ export function applyEdit(r, p) {
 export function delRoutine(s, id) {
   const idx = s.routines.findIndex((r) => r.id === id);
   if (idx < 0) return null;
-  const rt = s.routines.splice(idx, 1)[0], pf = `routine:${id}:`, co = {};
-  own(s.completions, (k, v) => {
-    own(v, (cd) => { if (cd.indexOf(pf) === 0) { slot(co, k)[cd] = true; delete v[cd]; } });
-    if (!Object.keys(v).length) delete s.completions[k];
-  });
-  return { r: rt, i: idx, co };
+  const rt = s.routines.splice(idx, 1)[0], pf = `routine:${id}:`;
+  return { r: rt, i: idx, co: pluck(s.completions, pf), ex: pluck(s.excused, pf) };
 }
 export function restoreRoutine(s, sn) {
   s.routines.splice(Math.min(sn.i, s.routines.length), 0, sn.r);
-  own(sn.co, (k, v) => own(v, (cd) => { slot(s.completions, k)[cd] = true; }));
+  putBack(s.completions, sn.co);
+  putBack(s.excused, sn.ex);
 }
-/** Replaces routines with the starter schedule, pruning completions of routines that no longer exist. */
+/** Moves every mark whose id starts with `pf` out of map `m` and returns them. */
+function pluck(m, pf) {
+  const out = {};
+  own(m, (k, v) => {
+    own(v, (cd) => { if (cd.indexOf(pf) === 0) { slot(out, k)[cd] = true; delete v[cd]; } });
+    if (!Object.keys(v).length) delete m[k];
+  });
+  return out;
+}
+function putBack(m, src) { own(src, (k, v) => own(v, (cd) => { slot(m, k)[cd] = true; })); }
+/** Drops routine marks whose routine is not in `keep` (a map of "routine:<id>:" prefixes). */
+function dropOrphans(m, keep) {
+  own(m, (k, v) => {
+    own(v, (id) => { if (id.indexOf('routine:') === 0 && !keep[id.slice(0, id.lastIndexOf(':') + 1)]) delete v[id]; });
+    if (!Object.keys(v).length) delete m[k];
+  });
+}
+/** Replaces routines with the starter schedule, pruning marks of routines that no longer exist. */
 export function applyStarter(s) {
   const keep = {};
   s.routines = STARTER.map((r) => { keep[`routine:gch-default-${r[0]}:`] = 1; return { id: 'gch-default-' + r[0], name: r[1], time: r[2], days: [r[3]] }; });
-  own(s.completions, (k, v) => {
-    own(v, (id) => { if (id.indexOf('routine:') === 0 && !keep[id.slice(0, id.lastIndexOf(':') + 1)]) delete v[id]; });
-    if (!Object.keys(v).length) delete s.completions[k];
-  });
+  dropOrphans(s.completions, keep);
+  dropOrphans(s.excused, keep);
+}
+
+/* ---------- task states: open, done, excused ---------- */
+export const REST_MAX_DAYS = 120;
+export function stateOf(s, k, id) {
+  if (s.excused[k] && s.excused[k][id]) return 'excused';
+  if (s.completions[k] && s.completions[k][id]) return 'done';
+  return 'open';
+}
+/** Removes empty per-day objects from both maps. */
+export function tidyDay(s, k) { dropEmpty(s.completions, k); dropEmpty(s.excused, k); }
+/** Tap cycle: open -> done -> excused -> open. Returns the state before the tap. */
+export function nextTaskState(s, k, id) {
+  const st = stateOf(s, k, id);
+  if (st === 'open') slot(s.completions, k)[id] = true;
+  else if (st === 'done') { delete s.completions[k][id]; slot(s.excused, k)[id] = true; }
+  else delete s.excused[k][id];
+  tidyDay(s, k);
+  return st;
+}
+/** Excuses open routine sessions in [from, to] (inclusive). Done sessions are kept.
+ *  Returns the marks added, or null when the range is invalid or longer than REST_MAX_DAYS. */
+export function restRange(s, from, to) {
+  if (!validDate(from) || !validDate(to) || from > to) return null;
+  const a = parse(from), span = Math.round((parse(to) - a) / DAY_MS) + 1;
+  if (span > REST_MAX_DAYS) return null;
+  const added = [];
+  for (let i = 0; i < span; i++) {
+    const d = addD(a, i), k = key(d);
+    s.routines.forEach((r) => {
+      if (r.archived || !r.days.includes(d.getDay())) return;
+      const id = `routine:${r.id}:${k}`;
+      if (stateOf(s, k, id) === 'open') { slot(s.excused, k)[id] = true; added.push([k, id]); }
+    });
+  }
+  return added;
+}
+/** Reverses restRange. Removes only the marks that restRange added. */
+export function undoRest(s, added) {
+  added.forEach(([k, id]) => { if (s.excused[k]) { delete s.excused[k][id]; tidyDay(s, k); } });
 }
 
 /* ---------- tasks ---------- */
@@ -163,24 +226,31 @@ export function tasksFor(s, d) {
   return a.sort((x, y) => (x.time < y.time ? -1 : x.time > y.time ? 1 : 0));
 }
 export function dayStat(s, d) {
-  const t = tasksFor(s, d), c = s.completions[key(d)] || {};
-  return { t, n: t.filter((x) => c[x.id]).length, c };
+  const k = key(d), c = s.completions[k] || {}, e = s.excused[k] || {};
+  const t = tasksFor(s, d).map((x) => ({ ...x, ex: !!e[x.id], state: e[x.id] ? 'excused' : c[x.id] ? 'done' : 'open' }));
+  const ex = t.filter((x) => x.ex).length;
+  return { t, c, e, ex, n: t.filter((x) => x.state === 'done').length, active: t.length - ex };
 }
+/** Done / total for a day. Excused tasks are removed from the total. */
 export function dayRatio(s, d) {
-  const k = key(d), c = s.completions[k] || {}, custom = Object.keys(s.customTasks[k] || {}), w = d.getDay();
+  const k = key(d), c = s.completions[k] || {}, e = s.excused[k] || {}, custom = Object.keys(s.customTasks[k] || {}), w = d.getDay();
   let n = 0, t = 0;
-  s.routines.forEach((r) => { if (!r.archived && r.days.includes(w)) { t++; if (c[`routine:${r.id}:${k}`]) n++; } });
-  custom.forEach((id) => { t++; if (c[id]) n++; });
+  const one = (id) => { if (e[id]) return; t++; if (c[id]) n++; };
+  s.routines.forEach((r) => { if (!r.archived && r.days.includes(w)) one(`routine:${r.id}:${k}`); });
+  custom.forEach((id) => one(id));
   return { n, t };
 }
 const dropEmpty = (o, k) => { if (o[k] && !Object.keys(o[k]).length) delete o[k]; };
 export function moveTask(s, a, id, b) {
   if (a === b || !s.customTasks[a] || !s.customTasks[a][id]) return false;
-  const t = s.customTasks[a][id], was = !!(s.completions[a] && s.completions[a][id]);
+  const t = s.customTasks[a][id], st = stateOf(s, a, id);
   delete s.customTasks[a][id]; dropEmpty(s.customTasks, a);
-  if (s.completions[a]) { delete s.completions[a][id]; dropEmpty(s.completions, a); }
+  if (s.completions[a]) delete s.completions[a][id];
+  if (s.excused[a]) delete s.excused[a][id];
+  tidyDay(s, a);
   slot(s.customTasks, b)[id] = t;
-  if (was) slot(s.completions, b)[id] = true;
+  if (st === 'done') slot(s.completions, b)[id] = true;
+  if (st === 'excused') slot(s.excused, b)[id] = true;
   return true;
 }
 export function copyDay(s, a, b, gen) {
@@ -197,7 +267,9 @@ export function copyDay(s, a, b, gen) {
 }
 export function removeTask(s, k, id) {
   delete s.customTasks[k][id]; dropEmpty(s.customTasks, k);
-  if (s.completions[k]) { delete s.completions[k][id]; dropEmpty(s.completions, k); }
+  if (s.completions[k]) delete s.completions[k][id];
+  if (s.excused[k]) delete s.excused[k][id];
+  tidyDay(s, k);
 }
 
 /* ---------- stats ---------- */
@@ -232,8 +304,8 @@ export function breakdown(s, today) {
     const pf = `routine:${r.id}:`;
     let done = 0, exp = 0, all = 0;
     for (let i = 0; i < 30; i++) {
-      const d = addD(today, -i);
-      if (r.days.includes(d.getDay())) { exp++; const k = key(d); if (s.completions[k] && s.completions[k][pf + k]) done++; }
+      const d = addD(today, -i), k = key(d);
+      if (r.days.includes(d.getDay()) && !(s.excused[k] && s.excused[k][pf + k])) { exp++; if (s.completions[k] && s.completions[k][pf + k]) done++; }
     }
     Object.keys(s.completions).forEach((k) => Object.keys(s.completions[k]).forEach((id) => { if (id.indexOf(pf) === 0) all++; }));
     return { r, done, exp, all, pct: exp ? Math.round((done / exp) * 100) : 0 };
@@ -324,7 +396,7 @@ export function searchEntries(s, q, limit = 8) {
 
 /* ---------- backups, nudge, misc ---------- */
 export function buildBackup(s, now = new Date()) {
-  const o = { format: 'gigachad-agenda-backup', version: 1, app: 'Gigachad Agenda', storageKey: KEY, exportedAt: now.toISOString(), routines: s.routines, customTasks: s.customTasks, completions: s.completions, notes: s.notes };
+  const o = { format: 'gigachad-agenda-backup', version: 1, app: 'Gigachad Agenda', storageKey: KEY, exportedAt: now.toISOString(), routines: s.routines, customTasks: s.customTasks, completions: s.completions, excused: s.excused, notes: s.notes };
   return { json: JSON.stringify(o, null, 2), name: `gigachad-agenda-backup-${key(now)}.json` };
 }
 /** Returns {error} or {data} (already cleaned). */
@@ -332,7 +404,7 @@ export function parseBackup(text, size) {
   if (size > BACKUP_MAX) return { error: 'File exceeds 5 MB.' };
   let o;
   try { o = JSON.parse(text); } catch { return { error: 'Not valid JSON.' }; }
-  if (!isObj(o) || o.format !== 'gigachad-agenda-backup' || o.version !== 1 || o.storageKey !== KEY || !Array.isArray(o.routines) || !isObj(o.customTasks) || !isObj(o.completions) || (o.notes !== undefined && !isObj(o.notes))) return { error: 'Invalid backup file.' };
+  if (!isObj(o) || o.format !== 'gigachad-agenda-backup' || o.version !== 1 || o.storageKey !== KEY || !Array.isArray(o.routines) || !isObj(o.customTasks) || !isObj(o.completions) || (o.notes !== undefined && !isObj(o.notes)) || (o.excused !== undefined && !isObj(o.excused))) return { error: 'Invalid backup file.' };
   return { data: clean(o) };
 }
 export function nudgeClean(raw) {

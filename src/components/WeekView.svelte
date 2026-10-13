@@ -1,18 +1,21 @@
 <script>
   import Icon from './Icon.svelte';
-  import { app, shiftWeek, thisWeek, openDay, toggleDone, moveTo, copyTasks } from '../lib/store.svelte.js';
-  import { MON, DW, key, addD, dayStat, weekLabel } from '../lib/logic.js';
+  import { app, shiftWeek, thisWeek, openDay, cycleTask, moveTo, copyTasks } from '../lib/store.svelte.js';
+  import { MON, DW, key, addD, dayStat, weekLabel, STATE_TEXT } from '../lib/logic.js';
 
   const days = $derived(Array.from({ length: 7 }, (_, i) => {
     const d = addD(app.week, i), k = key(d), st = dayStat(app.data, d);
     return { d, k, st, isT: +d === +app.today, fut: d > app.today, custom: Object.keys(app.data.customTasks[k] || {}).length };
   }));
-  const total = $derived(days.reduce((a, x) => a + x.st.t.length, 0));
+  const total = $derived(days.reduce((a, x) => a + x.st.active, 0));
   const done = $derived(days.reduce((a, x) => a + x.st.n, 0));
 
   let dragT = $state(null), over = $state(null), copyFrom = $state(null);
-
-  const headLabel = (x) => `${DW[x.d.getDay()]}, ${MON[x.d.getMonth()]} ${x.d.getDate()}${x.st.t.length ? `, ${x.st.n} of ${x.st.t.length} done` : ', no tasks'}${app.data.notes[x.k] ? ', has note' : ''}`;
+  const checked = (t) => (t.state === 'done' ? 'true' : t.state === 'excused' ? 'mixed' : 'false');
+  const headLabel = (x) => {
+    const st = x.st, count = !st.t.length ? ', no tasks' : !st.active ? ', rest day' : `, ${st.n} of ${st.active} done`;
+    return `${DW[x.d.getDay()]}, ${MON[x.d.getMonth()]} ${x.d.getDate()}${count}${st.ex && st.active ? `, ${st.ex} excused` : ''}${app.data.notes[x.k] ? ', has note' : ''}`;
+  };
 </script>
 
 <section class="view" id="view-week" role="tabpanel" aria-labelledby="t-week">
@@ -40,11 +43,11 @@
             <span class="dw">{DW[x.d.getDay()].slice(0, 3)}</span>
             <span class="dn">{x.d.getDate()}</span>
             {#if app.data.notes[x.k]}<i class="pen"></i>{/if}
-            <span class="ct">{x.st.t.length ? `${x.st.n}/${x.st.t.length}` : ''}</span>
+            <span class="ct">{#if x.st.active}{x.st.n}/{x.st.active}{:else if x.st.ex}Rest{/if}</span>
           </button>
           <button type="button" class="x wcopy" aria-label="Copy custom tasks from {DW[x.d.getDay()]}" aria-expanded={copyFrom === x.k} onclick={() => (copyFrom = copyFrom === x.k ? null : x.k)}><Icon name="copy" size={16} /></button>
         </div>
-        <div class="prog"><i style:width="{x.st.t.length ? (x.st.n / x.st.t.length) * 100 : 0}%"></i></div>
+        <div class="prog"><i style:width="{x.st.active ? (x.st.n / x.st.active) * 100 : 0}%"></i></div>
 
         {#if copyFrom === x.k}
           <div class="copy" role="group" aria-label="Copy to">
@@ -62,12 +65,14 @@
           {#each x.st.t as t (t.id)}
             <li>
               <button
-                type="button" class="row wrow {t.acc ? 'a-' + t.acc : t.tag ? 'tg-' + t.tag : ''}" aria-pressed={!!x.st.c[t.id]}
-                draggable={t.custom} onclick={() => toggleDone(x.k, t.id)}
+                type="button" class="row wrow {t.acc ? 'a-' + t.acc : t.tag ? 'tg-' + t.tag : ''}" role="checkbox" aria-checked={checked(t)}
+                aria-label="{t.title}, {t.time}, {STATE_TEXT[t.state]}" draggable={t.custom} onclick={() => cycleTask(x.k, t.id)}
                 ondragstart={(e) => { dragT = { k: x.k, id: t.id }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', t.id); } catch { /* ignore */ } }}
                 ondragend={() => { dragT = null; over = null; }}
               >
-                <span class="box"><Icon name="check" size={14} stroke={3} /></span>
+                <span class="box">
+                  {#if t.state === 'done'}<Icon name="check" size={14} stroke={3} />{:else if t.state === 'excused'}<Icon name="rest" size={12} stroke={2.4} />{/if}
+                </span>
                 <span class="tm">{t.time}</span>
                 <span class="t">{t.title}</span>
               </button>

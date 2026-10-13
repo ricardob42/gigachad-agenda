@@ -1,12 +1,13 @@
 <script>
   import { tick } from 'svelte';
   import Icon from './Icon.svelte';
-  import { app, submitRoutine, removeRoutine, toggleArchive, reorderRoutines, stepRoutine, loadStarter, toast } from '../lib/store.svelte.js';
-  import { ACC, DW, freqLabel, splitRoutines, moveRel } from '../lib/logic.js';
+  import { app, submitRoutine, removeRoutine, toggleArchive, reorderRoutines, stepRoutine, loadStarter, toast, excuseRange, todayKey } from '../lib/store.svelte.js';
+  import { ACC, DW, freqLabel, splitRoutines, moveRel, REST_MAX_DAYS } from '../lib/logic.js';
 
   const lists = $derived(splitRoutines(app.data.routines));
   let name = $state(''), time = $state('09:00'), days = $state([]), accent = $state(''), editingId = $state(null), msg = $state('');
   let nameEl, listEl;
+  let restFrom = $state(todayKey()), restTo = $state(todayKey());
 
   const accents = ['', ...ACC];
   const cap = (c) => (c ? c.charAt(0).toUpperCase() + c.slice(1) : 'Automatic');
@@ -128,6 +129,16 @@
     </ul>
   </div>
 
+  <div class="card" id="rest-card">
+    <h2>Rest period</h2>
+    <p class="empty">For sickness, injury or an emergency. Scheduled routine sessions in the range are excused: they don't count as missed and don't break your streak. Anything already done stays done. Up to {REST_MAX_DAYS} days.</p>
+    <div class="f gap">
+      <label class="lbl">From<input type="date" bind:value={restFrom} min="1900-01-01" max="2100-12-31" /></label>
+      <label class="lbl">To<input type="date" bind:value={restTo} min="1900-01-01" max="2100-12-31" /></label>
+      <button type="button" class="btn pri" onclick={() => excuseRange(restFrom, restTo)}>Excuse routines</button>
+    </div>
+  </div>
+
   {#if lists.archived.length}
     <div class="card" id="archived-card">
       <h2>Archived</h2>
@@ -138,6 +149,8 @@
 
 <style>
   .hd { margin-bottom: var(--sp-2); }
+  .lbl { display: grid; gap: var(--sp-1); font-size: 13px; color: var(--tx2); }
+  .lbl input { min-width: 160px; }
   .gap { margin-top: var(--sp-3); }
   .f input[type='text'] { flex: 1; min-width: 140px; }
   .dayb { width: 40px; height: 40px; border-radius: var(--r-sm); border: 1px solid var(--line-ctl); background: none; font: 500 14px var(--font-mono); transition: background .15s, transform .1s; }

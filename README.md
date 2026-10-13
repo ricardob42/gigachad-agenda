@@ -45,3 +45,10 @@ Storage keys, backup format (`version: 1`), background cache and share-target ar
 - In-app confirm dialog replaces `confirm()`; "today" rolls over at midnight without a reload.
 - Unreadable stored data is copied to `routine_cal_data_v1_corrupt` before being reset, instead of overwritten.
 - Service worker precaches hashed assets and shows a "new version ready" toast.
+
+## v22: excused state
+
+- Tasks cycle on tap: not done, done, excused. Excused tasks leave the day's total, so they are not counted as missed and do not break a streak.
+- Rest period (Routines tab): excuse scheduled routine sessions across a date range of up to 120 days. Completed sessions are kept. Undo is available.
+- Day dialog and palette offer "Excuse routines" for a single day.
+- Calendar, week view, stats and backups show excused sessions distinctly. Backups gain an optional `excused` map; older backups import unchanged.

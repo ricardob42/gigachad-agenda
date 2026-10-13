@@ -2,6 +2,7 @@ import {
   KEY, PREFS_KEY, NUDGE_KEY, SHARE_CACHE, SHARE_PATH, THEMES, TM,
   blank, clean, isObj, cid, slot, key, addD, weekStart, monthStart, startOfToday, dayLabel,
   moveTask, copyDay, removeTask, delRoutine, restoreRoutine, applyEdit, applyStarter, moveStep,
+  stateOf, nextTaskState, restRange, undoRest, tidyDay, REST_MAX_DAYS,
   hasMeaningfulData, nudgeClean, nudgeDue, buildBackup, parseBackup, bgFileOK, own,
 } from './logic.js';
 import { bgAvailable, bgLoad, bgSave, bgDelete, bgDecodes } from './backgrounds.js';
@@ -132,14 +133,16 @@ let closeFocusHook = () => { app.focusOpen = false; };
 export function onCloseFocus(fn) { closeFocusHook = fn; }
 
 /* ---------- tasks ---------- */
-export function toggleDone(k, id) {
-  const c = slot(app.data.completions, k);
-  if (c[id]) delete c[id]; else c[id] = true;
-  if (!Object.keys(c).length) delete app.data.completions[k];
+/** Tap cycle for a task: open -> done -> excused -> open. */
+export function cycleTask(k, id) {
+  const was = nextTaskState(app.data, k, id);
   persist();
+  if (was === 'done') toast('Excused. It does not count as missed and keeps your streak.', 'info');
 }
 export function markDone(k, id) {
+  if (app.data.excused[k]) delete app.data.excused[k][id];
   slot(app.data.completions, k)[id] = true;
+  tidyDay(app.data, k);
   persist();
 }
 export function addTask(k, time, title) {
@@ -152,24 +155,31 @@ export function addTask(k, time, title) {
 export function deleteTask(k, id) {
   const t = app.data.customTasks[k]?.[id];
   if (!t) return;
-  const snap = { ...t }, was = !!app.data.completions[k]?.[id];
+  const snap = { ...t }, st = stateOf(app.data, k, id);
   removeTask(app.data, k, id);
   persist();
   toast('Task deleted.', 'success', () => {
     slot(app.data.customTasks, k)[id] = snap;
-    if (was) slot(app.data.completions, k)[id] = true;
+    if (st === 'done') slot(app.data.completions, k)[id] = true;
+    if (st === 'excused') slot(app.data.excused, k)[id] = true;
     persist(); restored();
   });
 }
 export function clearDay(k) {
   const d = app.data;
-  const snap = { c: d.customTasks[k] ? JSON.parse(JSON.stringify(d.customTasks[k])) : null, m: d.completions[k] ? { ...d.completions[k] } : null, n: d.notes[k] ?? null };
-  if (!snap.c && !snap.m && snap.n === null) { toast('Nothing to clear for this day.', 'info'); return false; }
-  delete d.customTasks[k]; delete d.completions[k]; delete d.notes[k];
+  const snap = {
+    c: d.customTasks[k] ? JSON.parse(JSON.stringify(d.customTasks[k])) : null,
+    m: d.completions[k] ? { ...d.completions[k] } : null,
+    e: d.excused[k] ? { ...d.excused[k] } : null,
+    n: d.notes[k] ?? null,
+  };
+  if (!snap.c && !snap.m && !snap.e && snap.n === null) { toast('Nothing to clear for this day.', 'info'); return false; }
+  delete d.customTasks[k]; delete d.completions[k]; delete d.excused[k]; delete d.notes[k];
   persist();
   toast('Day cleared.', 'success', () => {
     if (snap.c) d.customTasks[k] = snap.c;
     if (snap.m) d.completions[k] = snap.m;
+    if (snap.e) d.excused[k] = snap.e;
     if (snap.n !== null) d.notes[k] = snap.n;
     persist(); restored();
   });
@@ -225,6 +235,16 @@ export function toggleArchive(r) {
   persist();
   if (was) toast('Routine returned to the schedule.', 'info');
   else toast('Routine archived.', 'success', () => { delete r.archived; persist(); toast('Restored — nothing was lost.', 'info'); });
+}
+/** Excuses open routine sessions in [from, to]. Undo removes only what this call added. */
+export function excuseRange(from, to) {
+  const added = restRange(app.data, from, to);
+  if (added === null) { toast(`Choose a valid range of up to ${REST_MAX_DAYS} days.`, 'error'); return 0; }
+  if (!added.length) { toast('No open routine sessions in that range.', 'info'); return 0; }
+  persist();
+  const n = added.length;
+  toast(`${n} session${n === 1 ? '' : 's'} excused. Streaks are kept.`, 'success', () => { undoRest(app.data, added); persist(); restored(); });
+  return n;
 }
 export function reorderRoutines(list) { app.data.routines = list; persist(); }
 export function stepRoutine(id, dir) {
