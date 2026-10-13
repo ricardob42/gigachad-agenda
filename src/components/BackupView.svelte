@@ -20,7 +20,7 @@
 
   <div class="card">
     <h2>Export</h2>
-    <ul class="blist"><li>Routines</li><li>Custom tasks</li><li>Completion history</li><li>Day notes</li></ul>
+    <ul class="blist"><li>Routines</li><li>Custom tasks</li><li>Completion history</li><li>Excused sessions</li><li>Day notes</li></ul>
     <div class="f">
       <button type="button" class="btn pri" onclick={downloadBackup}>Download backup</button>
       <button type="button" class="btn" onclick={shareBackup}>Share backup</button>

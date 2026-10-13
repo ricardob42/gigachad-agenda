@@ -1,6 +1,6 @@
 <script>
   import { app } from '../lib/store.svelte.js';
-  import { MON, MS, DW, addD, weekStart, dayRatio, heatLevel, streaks, monthTotals, activeLoad, allTime, breakdown, freqLabel } from '../lib/logic.js';
+  import { MON, MS, DW, addD, weekStart, dayRatio, heatLevel, streaks, monthTotals, activeLoad, allTime, breakdown, freqLabel, dayStat } from '../lib/logic.js';
 
   const weeks = $derived(app.vw <= 700 ? 13 : 26);
 
@@ -11,9 +11,10 @@
       const sun = addD(st0, c * 7), label = sun.getMonth() !== prevM ? MS[sun.getMonth()] : '';
       prevM = sun.getMonth();
       const cells = Array.from({ length: 7 }, (_, r) => {
-        const d = addD(sun, r), rt = dayRatio(app.data, d), up = d > app.today, lv = up ? -2 : heatLevel(rt.n, rt.t);
+        const d = addD(sun, r), rt = dayRatio(app.data, d), up = d > app.today, lv = up ? -2 : heatLevel(rt.n, rt.t), rest = !up && !rt.t && dayStat(app.data, d).ex > 0;
         if (!up && rt.t) { withT++; if (rt.n === rt.t) full++; }
-        return { cls: up ? 'up' : lv < 0 ? 'none' : 'lv' + lv, td: +d === +app.today, title: `${DW[d.getDay()].slice(0, 3)}, ${MS[d.getMonth()]} ${d.getDate()} — ${up ? 'upcoming' : rt.t ? `${rt.n} of ${rt.t} done` : 'no tasks'}` };
+        const info = up ? 'upcoming' : rest ? 'rest day' : rt.t ? `${rt.n} of ${rt.t} done` : 'no tasks';
+        return { cls: up ? 'up' : rest ? 'rest' : lv < 0 ? 'none' : 'lv' + lv, td: +d === +app.today, title: `${DW[d.getDay()].slice(0, 3)}, ${MS[d.getMonth()]} ${d.getDate()} — ${info}` };
       });
       return { label, cells };
     });
@@ -24,13 +25,13 @@
   const mt = $derived(monthTotals(app.data, app.month.getFullYear(), app.month.getMonth()));
   const al = $derived(activeLoad(app.data));
   const nums = $derived([
-    [String(sk.cur), 'Day streak', sk.cur === 1 ? 'day in a row' : 'days in a row'],
+    [String(sk.cur), 'Day streak', 'in a row · rest days excluded'],
     [String(sk.best), 'Best streak', 'last 12 months'],
     [`${mt.t ? Math.round((mt.n / mt.t) * 100) : 0}%`, 'Month completion', `${mt.n}/${mt.t} · ${MON[app.month.getMonth()]} ${app.month.getFullYear()}`],
     [String(al.active), 'Active routines', `${al.week} tasks/week${al.archived ? ` · ${al.archived} archived` : ''}`],
     [allTime(app.data).toLocaleString('en-US'), 'Tasks completed', 'all time'],
   ]);
-  const last7 = $derived(Array.from({ length: 7 }, (_, j) => { const d = addD(app.today, j - 6), rt = dayRatio(app.data, d); return { d, rt, td: j === 6 }; }));
+  const last7 = $derived(Array.from({ length: 7 }, (_, j) => { const d = addD(app.today, j - 6), rt = dayRatio(app.data, d); return { d, rt, rest: !rt.t && dayStat(app.data, d).ex > 0, td: j === 6 }; }));
   const rows = $derived(breakdown(app.data, app.today));
 </script>
 
@@ -59,8 +60,8 @@
     <div class="l7">
       {#each last7 as x}
         <div class="l7c" class:td={x.td}>
-          <div class="l7t" class:full={x.rt.t && x.rt.n === x.rt.t} title={x.rt.t ? `${x.rt.n} of ${x.rt.t} done` : 'no tasks'}><i style:height="{x.rt.t ? (x.rt.n / x.rt.t) * 100 : 0}%"></i></div>
-          <div class="l7l">{DW[x.d.getDay()].slice(0, 3)} {x.rt.t ? `${x.rt.n}/${x.rt.t}` : '–'}</div>
+          <div class="l7t" class:full={x.rt.t && x.rt.n === x.rt.t} class:rest={x.rest} title={x.rest ? 'rest day' : x.rt.t ? `${x.rt.n} of ${x.rt.t} done` : 'no tasks'}><i style:height="{x.rt.t ? (x.rt.n / x.rt.t) * 100 : 0}%"></i></div>
+          <div class="l7l">{DW[x.d.getDay()].slice(0, 3)} {x.rest ? 'rest' : x.rt.t ? `${x.rt.n}/${x.rt.t}` : '–'}</div>
         </div>
       {/each}
     </div>
@@ -98,7 +99,7 @@
   .hc.lv2 { background: color-mix(in srgb, var(--good) 42%, transparent); border-color: color-mix(in srgb, var(--good) 50%, transparent); }
   .hc.lv3 { background: color-mix(in srgb, var(--good) 66%, transparent); border-color: color-mix(in srgb, var(--good) 70%, transparent); }
   .hc.lv4 { background: var(--good); border-color: var(--good); }
-  .hc.up { border-style: dashed; } .hc.td { outline: 2px solid var(--tx); outline-offset: 1px; }
+  .hc.up { border-style: dashed; } .hc.rest { border-style: dashed; background: repeating-linear-gradient(-45deg, var(--surface) 0 3px, var(--surface-3) 3px 6px); } .hc.td { outline: 2px solid var(--tx); outline-offset: 1px; }
   .leg { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); font-size: 12px; color: var(--tx2); flex-wrap: wrap; }
   .leg .hc { width: 16px; animation: none; }
 
@@ -111,7 +112,7 @@
   .l7c { display: grid; gap: var(--sp-1); justify-items: center; }
   .l7t { position: relative; width: 100%; max-width: 56px; height: 96px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--surface); overflow: hidden; }
   .l7t i { position: absolute; left: 0; right: 0; bottom: 0; background: color-mix(in srgb, var(--good) 55%, transparent); transition: height .5s var(--ease); }
-  .l7t.full i { background: var(--good); }
+  .l7t.full i { background: var(--good); } .l7t.rest { background: repeating-linear-gradient(-45deg, var(--surface) 0 6px, var(--surface-2) 6px 12px); }
   .l7t::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed var(--line-2); }
   .l7l { font: 500 11.5px var(--font-mono); color: var(--tx2); text-align: center; }
   .l7c.td .l7l { color: var(--tx); font-weight: 700; } .l7c.td .l7t { border-color: var(--tx); }

@@ -2,7 +2,7 @@
   import { tick } from 'svelte';
   import { fade } from 'svelte/transition';
   import Icon from './Icon.svelte';
-  import { app, goView, goMonth, goDay, goToday, stepNav, thisMonth, thisWeek, setTheme, addTask, todayKey, toast, downloadBackup, loadStarter } from '../lib/store.svelte.js';
+  import { app, goView, goMonth, goDay, goToday, stepNav, thisMonth, thisWeek, setTheme, addTask, todayKey, toast, downloadBackup, loadStarter, excuseRange } from '../lib/store.svelte.js';
   import { modal } from '../lib/actions.js';
   import { MON, MS, THEMES, dayLabel, parse, rankCmds, parseDateQuery, parseQuickAdd, searchEntries } from '../lib/logic.js';
 
@@ -25,6 +25,7 @@
     { icon: 'backup', label: 'Import backup', kw: 'restore upload json', run: () => { goView('backup'); after(() => byId('backup-file')?.click()); } },
     { icon: 'routines', label: 'Reset to default schedule', kw: 'defaults 21 routines starter', run: () => { goView('routines'); loadStarter(); } },
     { icon: 'routines', label: 'Show archived routines', kw: 'archive hidden', run: () => { goView('routines'); after(() => { const el = byId('archived-card'); if (el) el.scrollIntoView({ block: 'start' }); else toast('No archived routines.', 'info'); }); } },
+    { icon: 'rest', label: "Excuse today's routines", kw: 'sick sickness injury emergency rest skip excused', run: () => excuseRange(todayKey(), todayKey()) },
     { icon: 'focus', label: 'Start a focus timer', kw: 'pomodoro focus', run: () => { goToday(); toast('Press the timer button on a task to start a focus session.', 'info'); } },
     { icon: 'look', label: "Write today's note", kw: 'journal note diary', run: () => { goToday(); after(() => byId('day-note')?.focus()); } },
     ...THEMES.map((t) => ({ icon: 'look', label: `Theme: ${t.name}`, kw: 'palette color appearance', run: () => setTheme(t.id) })),
