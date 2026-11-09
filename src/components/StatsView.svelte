@@ -1,5 +1,6 @@
 <script>
   import { app } from '../lib/store.svelte.js';
+  import Icon from './Icon.svelte';
   import { MON, MS, DW, addD, weekStart, dayRatio, heatLevel, streaks, monthTotals, activeLoad, allTime, breakdown, freqLabel, dayStat } from '../lib/logic.js';
 
   const weeks = $derived(app.vw <= 700 ? 13 : 26);
@@ -22,10 +23,12 @@
   });
 
   const sk = $derived(streaks(app.data, app.today));
+  const td = $derived(dayRatio(app.data, app.today));
+  const lit = $derived(sk.cur > 0 && (td.t === 0 || td.n === td.t));
   const mt = $derived(monthTotals(app.data, app.month.getFullYear(), app.month.getMonth()));
   const al = $derived(activeLoad(app.data));
   const nums = $derived([
-    [String(sk.cur), 'Day streak', 'in a row · rest days excluded'],
+    [String(sk.cur), 'Day streak', sk.cur > 0 && !lit ? 'at risk · finish today to keep it' : 'in a row · rest days excluded', true],
     [String(sk.best), 'Best streak', 'last 12 months'],
     [`${mt.t ? Math.round((mt.n / mt.t) * 100) : 0}%`, 'Month completion', `${mt.n}/${mt.t} · ${MON[app.month.getMonth()]} ${app.month.getFullYear()}`],
     [String(al.active), 'Active routines', `${al.week} tasks/week${al.archived ? ` · ${al.archived} archived` : ''}`],
@@ -52,7 +55,7 @@
   </div>
 
   <div class="card"><div class="nums" role="group" aria-label="Summary">
-    {#each nums as n}<div class="num"><b>{n[0]}</b><span>{n[1]}</span><small>{n[2]}</small></div>{/each}
+    {#each nums as n}<div class="num"><b>{#if n[3]}<span class="fl" class:off={!lit}><Icon name="flame" size={28} /></span>{/if}{n[0]}</b><span>{n[1]}</span><small>{n[2]}</small></div>{/each}
   </div></div>
 
   <div class="card">
@@ -99,12 +102,15 @@
   .hc.lv2 { background: color-mix(in srgb, var(--good) 42%, transparent); border-color: color-mix(in srgb, var(--good) 50%, transparent); }
   .hc.lv3 { background: color-mix(in srgb, var(--good) 66%, transparent); border-color: color-mix(in srgb, var(--good) 70%, transparent); }
   .hc.lv4 { background: var(--good); border-color: var(--good); }
-  .hc.up { border-style: dashed; } .hc.rest { border-style: dashed; background: repeating-linear-gradient(-45deg, var(--surface) 0 3px, var(--surface-3) 3px 6px); } .hc.td { outline: 2px solid var(--tx); outline-offset: 1px; }
+  .hc.up { border-style: dashed; } .hc.rest { border-style: dashed; background: repeating-linear-gradient(-45deg, var(--surface) 0 3px, var(--surface-3) 3px 6px); }
+  .hc.td { outline: 2px solid var(--tx); outline-offset: 1px; }
   .leg { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); font-size: 12px; color: var(--tx2); flex-wrap: wrap; }
   .leg .hc { width: 16px; animation: none; }
 
   .nums { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--sp-4); }
-  .num b { display: block; font: 600 34px/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
+  .num b { display: flex; align-items: center; gap: var(--sp-2); font: 600 34px/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
+  .fl { display: inline-flex; color: var(--accent); } .fl :global(svg) { fill: color-mix(in srgb, currentColor 30%, transparent); }
+  .fl.off { color: var(--tx2); }
   .num span { display: block; font-size: 13px; color: var(--tx2); }
   .num small { display: block; font-size: 12px; color: var(--tx2); margin-top: var(--sp-1); }
 
