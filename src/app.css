@@ -7,7 +7,7 @@
   --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
-  --r-xl: 24px; --r-lg: 18px; --r-md: 14px; --r-sm: 10px;
+  --r-xl: 24px; --r-lg: 18px; --r-md: 14px; --r-sm: 10px; --r-xs: 4px;
   --ease: cubic-bezier(.2, .7, .2, 1);
   --nav-h: 0px;
   --bg-image-opacity: .26;
@@ -112,6 +112,15 @@ input:focus-visible, textarea:focus-visible { outline: none; border-color: var(-
 kbd { font: 500 11.5px var(--font-mono); padding: 1px var(--sp-2); border-radius: 6px; border: 1px solid var(--line-2); border-bottom-width: 2px; background: var(--surface); color: var(--tx2); }
 
 .card { padding: var(--sp-5); border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--panel); margin-top: var(--sp-4); }
+/* View header row (month/week) */
+.bar { display: flex; align-items: center; gap: var(--sp-3); margin: var(--sp-5) 0 var(--sp-4); flex-wrap: wrap; }
+.nav { margin-left: auto; display: flex; gap: var(--sp-2); }
+/* File picker rendered as a button */
+.pick { position: relative; display: inline-flex; align-items: center; overflow: hidden; }
+.pick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.pick.disabled { opacity: .45; }
+.pick.disabled input { cursor: not-allowed; }
+.pick:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 .card h2 { font-size: 21px; margin-bottom: var(--sp-3); }
 .f { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; }
 .empty { color: var(--tx2); margin: 0; }
@@ -135,7 +144,6 @@ kbd { font: 500 11.5px var(--font-mono); padding: 1px var(--sp-2); border-radius
 .row[aria-checked='true'] .t { color: var(--tx2); text-decoration: line-through; text-decoration-thickness: 1px; }
 .row .tm { font: 500 13px var(--font-mono); color: var(--tx2); }
 .row .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.row .src { font-size: 12px; color: var(--tx2); }
 @keyframes pop { 50% { transform: scale(1.25); } }
 .row[aria-checked='mixed'] { border-style: dashed; background: repeating-linear-gradient(-45deg, var(--surface) 0 8px, var(--surface-2) 8px 16px); }
 .row[aria-checked='mixed'] .box { border-style: dashed; color: var(--tx2); }

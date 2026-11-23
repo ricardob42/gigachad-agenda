@@ -4,17 +4,21 @@
   import { app, closeDay, cycleTask, addTask, deleteTask, clearDay, setNote, moveTo, loadStarter, excuseRange } from '../lib/store.svelte.js';
   import { openFocus } from '../lib/focus.svelte.js';
   import { modal } from '../lib/actions.js';
-  import { DW, MON, parse, dayStat, addD, key, validDate, STATE_TEXT } from '../lib/logic.js';
+  import { DW, MON, parse, dayStat, addD, key, validDate, taskAria, taskChecked } from '../lib/logic.js';
 
   const k = app.day; // the modal is re-created per day via {#key}
   const d = parse(k);
   const st = $derived(dayStat(app.data, d));
   const pct = $derived(st.active ? (st.n / st.active) * 100 : 0);
   const canExcuse = $derived(st.t.some((x) => !x.custom && x.state === 'open'));
-  const checked = (x) => (x.state === 'done' ? 'true' : x.state === 'excused' ? 'mixed' : 'false');
 
   let time = $state('09:00'), title = $state(''), note = $state(app.data.notes[k] || '');
-  let moving = $state(null), moveDate = $state(''), titleEl;
+  let moving = $state(null), moveDate = $state(''), titleEl, noteEl;
+  // Undo (e.g. "Clear day") changes the store, not this local copy; resync unless the user is typing.
+  $effect(() => {
+    const v = app.data.notes[k] || '';
+    if (document.activeElement !== noteEl && v !== note) note = v;
+  });
 
   function add() {
     if (!addTask(k, time, title)) { titleEl?.focus(); return; }
@@ -55,15 +59,14 @@
       {#each st.t as x (x.id)}
         <li>
           <button
-            type="button" class="row {x.acc ? 'a-' + x.acc : ''}" role="checkbox" aria-checked={checked(x)}
-            aria-label="{x.title}, {x.time}, {STATE_TEXT[x.state]}" onclick={() => cycleTask(k, x.id)}
+            type="button" class="row {x.acc ? 'a-' + x.acc : x.tag ? 'tg-' + x.tag : ''}" role="checkbox" aria-checked={taskChecked(x.state)}
+            aria-label={taskAria(x)} onclick={() => cycleTask(k, x.id)}
           >
             <span class="box">
               {#if x.state === 'done'}<Icon name="check" size={14} stroke={3} />{:else if x.state === 'excused'}<Icon name="rest" size={13} stroke={2.4} />{/if}
             </span>
             <span class="tm">{x.time}</span>
             <span class="t">{x.title}</span>
-            <span class="src">{x.ex ? 'Excused' : x.custom ? '' : 'Routine'}</span>
           </button>
           <button type="button" class="x" aria-label="Start a focus timer for {x.title}" onclick={() => openFocus(k, x.id, x.title)}><Icon name="focus" size={18} /></button>
           {#if x.custom}
@@ -88,7 +91,7 @@
     </div>
 
     <div class="nh"><label for="day-note">Note</label><span class="mono" class:hi={note.length >= 400} aria-live="polite" aria-atomic="true">{note.length} / 500</span></div>
-    <textarea id="day-note" maxlength="500" rows="3" placeholder="Write something about this day" value={note} oninput={onNote}></textarea>
+    <textarea id="day-note" maxlength="500" rows="3" placeholder="Write something about this day" bind:this={noteEl} value={note} oninput={onNote}></textarea>
 
     <div class="mf">
       <div class="f">
@@ -112,14 +115,14 @@
   .mh { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-3); }
   h2 { font-size: 26px; line-height: 1.15; }
   h2 small { font-weight: 300; font-size: 16px; color: var(--tx2); }
-  .prog { display: flex; align-items: center; gap: var(--sp-3); margin: var(--sp-4) 0; font: 500 12.5px var(--font-mono); color: var(--tx2); }
-  .track { flex: 1; height: 6px; border-radius: 9px; background: var(--surface-3); overflow: hidden; }
-  .track i { display: block; height: 100%; background: var(--good); border-radius: 9px; transition: width .4s var(--ease); }
+  .prog { display: flex; align-items: center; gap: var(--sp-3); margin: var(--sp-4) 0; font: 500 12px var(--font-mono); color: var(--tx2); }
+  .track { flex: 1; height: 6px; border-radius: var(--r-sm); background: var(--surface-3); overflow: hidden; }
+  .track i { display: block; height: 100%; background: var(--good); border-radius: var(--r-sm); transition: width .4s var(--ease); }
   .tl { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
   .tl li { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
   .tl li .row { flex: 1; min-width: 0; width: auto; }
   .tl li.empty { display: block; }
-  .hint { margin: var(--sp-2) 0 var(--sp-4); font-size: 12.5px; color: var(--tx2); }
+  .hint { margin: var(--sp-2) 0 var(--sp-4); font-size: 12px; color: var(--tx2); }
   .mv { flex-basis: 100%; display: flex; gap: var(--sp-2); padding: var(--sp-2); border-radius: var(--r-sm); background: var(--surface-2); animation: up .2s both; }
   .mv input { flex: 1; min-width: 0; }
   .addf { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-4); }
@@ -129,6 +132,7 @@
   .mf { display: flex; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-4); }
   @media (max-width: 700px) {
     .ov { align-items: flex-end; padding: 0; }
+    h2 small { display: block; margin-top: 2px; }
     .dlg { max-width: none; max-height: 92dvh; border-radius: var(--r-xl) var(--r-xl) 0 0; padding-bottom: calc(var(--sp-5) + env(safe-area-inset-bottom, 0px)); animation: sheet .4s var(--ease); }
     @keyframes sheet { from { transform: translateY(100%); } }
   }

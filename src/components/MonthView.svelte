@@ -1,24 +1,26 @@
 <script>
   import { tick } from 'svelte';
   import Icon from './Icon.svelte';
-  import { app, shiftMonth, thisMonth, openDay } from '../lib/store.svelte.js';
-  import { MON, MS, DW, key, addD, dayStat, dayRatio, clampYear } from '../lib/logic.js';
+  import { app, shiftMonth, thisMonth, openDay, loadStarter, goView } from '../lib/store.svelte.js';
+  import { MON, MS, DW, key, addD, dayStat, dayRatio, daySummary, clampYear, hasMeaningfulData } from '../lib/logic.js';
 
   const DOW = DW.map((d) => d.slice(0, 3));
   const y = $derived(app.month.getFullYear());
   const m = $derived(app.month.getMonth());
   const notCurrent = $derived(y !== app.today.getFullYear() || m !== app.today.getMonth());
+  const fresh = $derived(!hasMeaningfulData(app.data));
 
   const cells = $derived.by(() => {
     const first = new Date(y, m, 1), start = addD(first, -first.getDay());
+    // Months that fit in five weeks should not reserve a sixth empty row.
+    const rows = Math.max(5, Math.ceil((first.getDay() + new Date(y, m + 1, 0).getDate()) / 7));
     const days = Array.from({ length: 44 }, (_, i) => addD(start, i - 1)); // one extra day each side for streak runs
     const full = days.map((d) => { const r = dayRatio(app.data, d); return r.t > 0 && r.n === r.t; });
-    return Array.from({ length: 42 }, (_, i) => {
+    return Array.from({ length: rows * 7 }, (_, i) => {
       const d = days[i + 1], k = key(d), st = dayStat(app.data, d), T = st.t.length, A = st.active;
       const rest = !A && st.ex > 0;
-      const status = !T ? 'no tasks' : rest ? 'rest day' : `${st.n} of ${A} done${st.ex ? `, ${st.ex} excused` : ''}`;
-      const label = `${DW[d.getDay()]}, ${MON[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} — ${status}${app.data.notes[k] ? ', has note' : ''}`;
-      return { d, k, st, T, A, rest, label, inM: d.getMonth() === m, isT: +d === +app.today, full: full[i + 1], run: full[i + 1] && (full[i] || full[i + 2]) };
+      const label = `${DW[d.getDay()]}, ${MON[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} — ${daySummary(st)}${app.data.notes[k] ? ', has note' : ''}`;
+      return { d, k, st, T, A, rest, label, inM: d.getMonth() === m, isT: +d === +app.today, full: full[i + 1] };
     });
   });
   const defIdx = $derived.by(() => {
@@ -89,45 +91,55 @@
     </div>
   </div>
 
-  <div class="dow" aria-hidden="true">{#each DOW as n}<span>{n}</span>{/each}</div>
-
-  {#key app.month.getTime()}
-    <div class="grid enter" role="grid" aria-label="Month calendar" onkeydown={gridKey}>
-      {#each cells as c, i (c.k)}
-        <button
-          type="button" class="cell" class:out={!c.inM} class:today={c.isT} class:full={c.full} class:rest={c.rest} class:run={c.run}
-          data-i={i} data-k={c.k} style:--i={i} style:--p={c.A ? c.st.n / c.A : 0}
-          aria-label={c.label} tabindex={i === tabIdx ? 0 : -1} onclick={() => openDay(c.k)}
-        >
-          {#if c.st.n > 0}<span class="fill"></span>{/if}
-          <span class="d"><span class="n">{c.d.getDate()}</span>{#if app.data.notes[c.k]}<i class="pen" title="Has note"></i>{/if}</span>
-          {#each c.st.t.slice(0, 3) as x (x.id)}
-            <span class="pill {x.acc ? 'a-' + x.acc : x.tag ? 'tg-' + x.tag : ''}" class:done={x.state === 'done'} class:ex={x.state === 'excused'}>
-              <i>{x.time}</i><em>{x.title}</em>
-            </span>
-          {/each}
-          {#if c.T > 3}<span class="more">+{c.T - 3} more</span>{/if}
-          {#if c.T}<span class="badge">{c.rest ? 'rest' : `${c.st.n}/${c.A}`}</span>{/if}
-        </button>
-      {/each}
+  {#if fresh}
+    <div class="start">
+      <h2>A blank month.</h2>
+      <p>Load a full week of editable routines, or write your own from scratch. Everything stays in this browser.</p>
+      <div class="f">
+        <button type="button" class="btn pri" onclick={loadStarter}>Load starter schedule</button>
+        <button type="button" class="btn" onclick={() => goView('routines')}>Create my own</button>
+      </div>
+      <small>You can export a backup at any time from the Backup tab.</small>
     </div>
-  {/key}
+  {:else}
+    <div class="dow" aria-hidden="true">{#each DOW as n}<span>{n}</span>{/each}</div>
 
-  <p class="key">
-    <i class="sw"></i> Fill shows the share of the day's tasks done. A run of full cells is a streak. Striped days are rest days: they neither count nor break a streak.
-    <span class="hint"><kbd>←</kbd> <kbd>→</kbd> months · <kbd>T</kbd> today · <kbd>Ctrl K</kbd> commands</span>
-  </p>
+    {#key app.month.getTime()}
+      <div class="grid enter" role="grid" aria-label="Month calendar" onkeydown={gridKey}>
+        {#each cells as c, i (c.k)}
+          <button
+            type="button" class="cell" class:out={!c.inM} class:today={c.isT} class:full={c.full} class:rest={c.rest}
+            data-i={i} data-k={c.k} style:--i={i} style:--p={c.A ? c.st.n / c.A : 0}
+            aria-label={c.label} tabindex={i === tabIdx ? 0 : -1} onclick={() => openDay(c.k)}
+          >
+            {#if c.st.n > 0}<span class="fill"></span>{/if}
+            <span class="d"><span class="n">{c.d.getDate()}</span>{#if app.data.notes[c.k]}<i class="pen" title="Has note"></i>{/if}</span>
+            {#each c.st.t.slice(0, 3) as x (x.id)}
+              <span class="pill {x.acc ? 'a-' + x.acc : x.tag ? 'tg-' + x.tag : ''}" class:done={x.state === 'done'} class:ex={x.state === 'excused'}>
+                <em>{x.title}</em>
+              </span>
+            {/each}
+            {#if c.T > 3}<span class="more">+{c.T - 3} more</span>{/if}
+            {#if c.T}<span class="badge">{c.rest ? 'rest' : `${c.st.n}/${c.A}`}</span>{/if}
+          </button>
+        {/each}
+      </div>
+    {/key}
+
+    <p class="key">
+      <i class="sw"></i> Fill shows the share of the day's tasks done. A run of full cells is a streak. Striped days are rest days: they neither count nor break a streak.
+      <span class="hint"><kbd>←</kbd> <kbd>→</kbd> months · <kbd>T</kbd> today · <kbd>Ctrl K</kbd> commands</span>
+    </p>
+  {/if}
 </section>
 
 <style>
-  .bar { display: flex; align-items: center; gap: var(--sp-3); margin: var(--sp-5) 0 var(--sp-4); flex-wrap: wrap; }
   .wrap { position: relative; }
   h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.05; font-weight: 600; font-variation-settings: 'opsz' 72; }
   .mhb { display: inline-flex; align-items: baseline; gap: var(--sp-2); border: 0; background: none; padding: 0 var(--sp-1); border-radius: var(--r-sm); font: inherit; letter-spacing: inherit; }
   .mhb small { font-weight: 300; color: var(--tx2); font-size: inherit; }
   .mhb :global(svg) { align-self: center; color: var(--tx2); transition: transform .25s var(--ease); }
   .mhb[aria-expanded='true'] :global(svg) { transform: rotate(180deg); }
-  .nav { margin-left: auto; display: flex; gap: var(--sp-2); }
 
   .pop { position: absolute; z-index: 10; top: calc(100% + 8px); left: 0; min-width: 240px; padding: var(--sp-3); border-radius: var(--r-md); border: 1px solid var(--line-2); background: var(--panel-strong); box-shadow: var(--shadow); animation: dd .2s var(--ease); }
   @keyframes dd { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
@@ -151,14 +163,14 @@
   }
   .cell:nth-child(7n + 1), .cell:nth-child(7n) { background: var(--surface-2); }
   .cell:hover { border-color: var(--line-2); transform: translateY(-2px); }
-  .cell.out { opacity: .45; }
-  .cell.full { border-color: color-mix(in srgb, var(--good) 55%, transparent); }
-  .cell.run::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--good); }
+  .cell.out { opacity: .68; }
+  .cell.out .pill, .cell.out .more, .cell.out .badge { display: none; }
+  .cell.full { border-color: color-mix(in srgb, var(--good) 68%, transparent); }
   .cell.today { border-color: var(--tx); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tx) 10%, transparent); }
   .fill {
     position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--p) * 100%); pointer-events: none; transform-origin: bottom;
-    background: linear-gradient(to top, color-mix(in srgb, var(--good) 34%, transparent), color-mix(in srgb, var(--good) 14%, transparent));
-    border-top: 1px solid color-mix(in srgb, var(--good) 75%, transparent);
+    background: color-mix(in srgb, var(--good) 12%, transparent);
+    border-top: 2px solid color-mix(in srgb, var(--good) 60%, transparent);
   }
   .cell > :not(.fill) { position: relative; }
   .d { display: flex; align-items: center; gap: var(--sp-2); }
@@ -166,17 +178,20 @@
   .today .n { background: var(--accent); color: var(--on-accent); }
   .pen { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
   .pill {
-    display: flex; gap: var(--sp-1); padding: 0 var(--sp-2); line-height: 20px; border-radius: 6px; white-space: nowrap; font-size: 12px;
-    background: var(--surface-2); border-left: 2px solid var(--ac, var(--line-ctl));
+    display: flex; align-items: center; gap: 6px; padding: 0 var(--sp-2); line-height: 20px; border-radius: 6px; white-space: nowrap; font-size: 12px;
+    background: var(--surface-2);
   }
+  .pill::before { content: ''; flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--ac, var(--line-ctl)); }
   .pill[class*='a-'], .pill[class*='tg-'] { background: color-mix(in srgb, var(--ac) 16%, transparent); }
-  .pill i { font: 500 10.5px/20px var(--font-mono); color: var(--tx2); }
   .pill em { font-style: normal; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-  .pill.done { color: var(--tx2); } .pill.done em { text-decoration: line-through; }
-  .pill.ex { opacity: .6; border-left-style: dashed; } .pill.ex em { font-style: italic; }
+  .pill.done { color: var(--tx); background: var(--surface-2); }
+  .pill.done em { text-decoration: line-through; text-decoration-thickness: 1px; }
+  .pill.ex { color: var(--tx); background: var(--surface); }
+  .pill.ex::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ac, var(--line-ctl)); }
+  .pill.ex em { font-style: italic; }
   .cell.rest { background: repeating-linear-gradient(-45deg, var(--surface) 0 6px, var(--surface-2) 6px 12px); } .cell.rest .n { color: var(--tx2); }
-  .more { font-size: 11px; color: var(--tx2); }
-  .badge { display: none; font: 500 11px var(--font-mono); color: var(--tx2); }
+  .more { font-size: 11px; color: var(--tx); }
+  .badge { display: none; font: 500 11px var(--font-mono); color: var(--tx); }
 
   .enter .cell { animation: in .4s both; animation-delay: calc(var(--i) * 8ms); }
   .enter .fill { animation: rise .7s var(--ease) both; animation-delay: calc(var(--i) * 8ms + 150ms); }
@@ -184,8 +199,18 @@
   @keyframes rise { from { transform: scaleY(0); } }
 
   .key { margin: var(--sp-4) 0 0; font-size: 12px; color: var(--tx2); display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
-  .sw { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--line-2); background: linear-gradient(to top, color-mix(in srgb, var(--good) 45%, transparent) 66%, transparent 66%); }
+  .sw { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--line-2); background: linear-gradient(to top, color-mix(in srgb, var(--good) 32%, transparent) 66%, transparent 66%); }
   .hint { margin-left: auto; }
+
+  .start {
+    max-width: 620px; margin: var(--sp-5) auto 0; padding: clamp(28px, 6vw, 56px) clamp(20px, 5vw, 48px);
+    border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); text-align: center;
+  }
+  .start h2 { font: 600 26px/1.15 var(--font-display); letter-spacing: -.015em; }
+  @media (min-width: 900px) { .start h2 { font-size: 30px; } }
+  .start p { margin: var(--sp-3) auto var(--sp-5); max-width: 44ch; color: var(--tx2); line-height: 1.55; }
+  .start .f { justify-content: center; }
+  .start small { display: block; margin-top: var(--sp-4); color: var(--tx2); font-size: 12px; }
 
   @media (max-width: 700px) {
     h1 { font-size: 30px; }
@@ -195,6 +220,8 @@
     .badge { display: block; }
     .n { font-size: 15px; }
     .hint { display: none; }
+    .start { margin-top: var(--sp-4); padding: var(--sp-5) var(--sp-4); }
+    .start .f { flex-direction: column; align-items: stretch; }
   }
   @media (orientation: landscape) and (max-height: 500px) { .cell { min-height: 44px; } }
 </style>

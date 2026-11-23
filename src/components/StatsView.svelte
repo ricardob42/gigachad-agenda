@@ -1,7 +1,7 @@
 <script>
   import { app } from '../lib/store.svelte.js';
   import Icon from './Icon.svelte';
-  import { MON, MS, DW, addD, weekStart, dayRatio, heatLevel, streaks, monthTotals, activeLoad, allTime, breakdown, freqLabel, dayStat } from '../lib/logic.js';
+  import { MON, MS, DW, addD, weekStart, dayRatio, heatLevel, streaks, streakLit, monthTotals, activeLoad, allTime, breakdown, freqLabel, dayStat } from '../lib/logic.js';
 
   const weeks = $derived(app.vw <= 700 ? 13 : 26);
 
@@ -23,8 +23,7 @@
   });
 
   const sk = $derived(streaks(app.data, app.today));
-  const td = $derived(dayRatio(app.data, app.today));
-  const lit = $derived(sk.cur > 0 && (td.t === 0 || td.n === td.t));
+  const lit = $derived(streakLit(app.data, app.today));
   const mt = $derived(monthTotals(app.data, app.month.getFullYear(), app.month.getMonth()));
   const al = $derived(activeLoad(app.data));
   const nums = $derived([
@@ -51,7 +50,7 @@
         {/each}
       </div>
     </div>
-    <div class="leg"><span>Less</span>{#each ['lv0', 'lv1', 'lv2', 'lv3', 'lv4'] as c}<div class="hc {c}"></div>{/each}<span>More</span><div class="hc up"></div><span>Dashed = upcoming</span></div>
+    <div class="leg"><span>Less</span>{#each ['lv0', 'lv1', 'lv2', 'lv3', 'lv4'] as c}<div class="hc {c}"></div>{/each}<span>More</span><div class="hc none"></div><span>No tasks</span><div class="hc rest"></div><span>Rest day</span><div class="hc up"></div><span>Dashed = upcoming</span></div>
   </div>
 
   <div class="card"><div class="nums" role="group" aria-label="Summary">
@@ -97,6 +96,7 @@
   .hml { font: 500 11px/16px var(--font-mono); color: var(--tx2); height: 16px; white-space: nowrap; }
   .hc { aspect-ratio: 1; border-radius: 4px; border: 1px solid var(--line); animation: pix .5s var(--ease) both; animation-delay: calc(var(--c, 0) * 14ms); }
   @keyframes pix { from { opacity: 0; transform: scale(.6); } }
+  .hc.none { background: transparent; }
   .hc.lv0 { background: var(--surface-2); }
   .hc.lv1 { background: color-mix(in srgb, var(--good) 22%, transparent); border-color: color-mix(in srgb, var(--good) 30%, transparent); }
   .hc.lv2 { background: color-mix(in srgb, var(--good) 42%, transparent); border-color: color-mix(in srgb, var(--good) 50%, transparent); }
@@ -123,17 +123,19 @@
   .l7l { font: 500 11.5px var(--font-mono); color: var(--tx2); text-align: center; }
   .l7c.td .l7l { color: var(--tx); font-weight: 700; } .l7c.td .l7t { border-color: var(--tx); }
 
-  .btw { border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
   .btr { display: grid; grid-template-columns: 32px minmax(0, 1fr) minmax(120px, 200px) 72px; gap: var(--sp-3); align-items: center; padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--line); }
   .btr:last-child { border-bottom: 0; }
-  .bth { font-size: 12px; font-weight: 500; color: var(--tx2); background: var(--surface); }
-  .btb { max-height: 384px; overflow: auto; }
+  .bth { font-size: 12px; font-weight: 500; color: var(--tx2); background: var(--surface); border-block: 1px solid var(--line); }
   .bn { text-align: center; font-family: var(--font-mono); color: var(--tx2); } .btr.top .bn { color: var(--tx); font-weight: 700; }
   .bm { font-size: 12px; color: var(--tx2); font-family: var(--font-mono); }
   .bp { display: grid; gap: var(--sp-1); font: 12px var(--font-mono); }
-  .mp { height: 6px; border-radius: 9px; background: var(--surface-3); overflow: hidden; }
+  .mp { height: 6px; border-radius: var(--r-sm); background: var(--surface-3); overflow: hidden; }
   .mp i { display: block; height: 100%; background: var(--ac, var(--good)); transition: width .5s var(--ease); }
   .ba { text-align: right; font-family: var(--font-mono); }
   @media (max-width: 980px) { .nums { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-  @media (max-width: 700px) { .nums { grid-template-columns: repeat(2, minmax(0, 1fr)); } .btr { grid-template-columns: 28px minmax(0, 1fr) 96px; } .btr .ba { display: none; } }
+  @media (max-width: 700px) {
+    .nums { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .nums .num:last-child { grid-column: 1 / -1; }
+    .btr { grid-template-columns: 28px minmax(0, 1fr) 96px; } .btr .ba { display: none; }
+  }
 </style>

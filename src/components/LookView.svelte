@@ -27,7 +27,7 @@
         <p class="empty">{hint}</p>
         <div class="prev {kind}" style:background-image={app.bg[kind] ? `url("${app.bg[kind]}")` : null}>{#if !app.bg[kind]}No image set{/if}</div>
         <div class="f">
-          <label class="btn pri pick" class:disabled={!app.bg.available}>
+          <label class="btn pick" class:disabled={!app.bg.available}>
             Choose image
             <input type="file" accept="image/*" disabled={!app.bg.available} onchange={(e) => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ''; pickBg(kind, f); }} />
           </label>
@@ -60,12 +60,8 @@
   .chipv i { width: 26px; height: 8px; border-radius: 4px; } .chipv i.b { width: 14px; opacity: .5; }
   .bgcards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
   .bgcards .card { margin-top: var(--sp-4); }
-  .prev { aspect-ratio: 16 / 9; margin: var(--sp-3) 0; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface) center / cover no-repeat; display: grid; place-items: center; color: var(--tx2); font-size: 13px; }
-  .prev.mobile { aspect-ratio: 9 / 16; max-height: 320px; margin-inline: auto; }
-  .pick { position: relative; display: inline-flex; align-items: center; overflow: hidden; }
-  .pick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-  .pick.disabled { opacity: .45; } .pick.disabled input { cursor: not-allowed; }
-  .pick:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .prev { aspect-ratio: 16 / 9; margin: var(--sp-3) 0; border-radius: var(--r-md); background: var(--surface) center / cover no-repeat; display: grid; place-items: center; color: var(--tx2); font-size: 13px; }
+  .prev.mobile { width: min(150px, 100%); aspect-ratio: 9 / 16; margin-inline: auto; }
   .dim { gap: var(--sp-3); } .dim input { flex: 1; min-width: 160px; accent-color: var(--accent); }
   .lock { display: flex; gap: var(--sp-2); align-items: center; margin-top: var(--sp-4); }
   .warn { color: var(--warn); margin-top: var(--sp-4); }

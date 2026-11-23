@@ -8,6 +8,12 @@
   let name = $state(''), time = $state('09:00'), days = $state([]), accent = $state(''), editingId = $state(null), msg = $state('');
   let nameEl, listEl;
   let restFrom = $state(todayKey()), restTo = $state(todayKey());
+  // Crossing midnight while this tab is open must not excuse yesterday by default.
+  let lastToday = todayKey();
+  $effect(() => {
+    const t = todayKey();
+    if (t !== lastToday) { if (restFrom === restTo && restFrom < t) restFrom = restTo = t; lastToday = t; }
+  });
 
   const accents = ['', ...ACC];
   const cap = (c) => (c ? c.charAt(0).toUpperCase() + c.slice(1) : 'Automatic');
@@ -103,10 +109,10 @@
     <div class="f hd"><h2>{editingId ? 'Edit routine' : 'New routine'}</h2>{#if editingId}<span class="chip warn">Editing</span>{/if}</div>
     {#if editingId}<p class="empty">Editing keeps history: existing completions stay linked to this routine.</p>{/if}
     <div class="f gap"><input type="text" id="routine-name" bind:this={nameEl} bind:value={name} maxlength="120" placeholder="Routine name" aria-label="Routine name" onkeydown={(e) => { if (e.key === 'Enter') submit(); }} /><input type="time" bind:value={time} aria-label="Time" /></div>
-    <div class="f gap" role="group" aria-label="Days">
+    <div class="f gap days" role="group" aria-label="Days">
       {#each DW as dn, i}<button type="button" class="dayb" aria-pressed={days.includes(i)} aria-label={dn} onclick={() => toggleDay(i)}>{'SMTWTFS'.charAt(i)}</button>{/each}
     </div>
-    <div class="f gap" role="radiogroup" aria-label="Accent color" onkeydown={accKey}>
+    <div class="f gap sws" role="radiogroup" aria-label="Accent color" onkeydown={accKey}>
       {#each accents as c}
         <button type="button" role="radio" class="sw {c ? 'a-' + c : ''}" aria-checked={accent === c} tabindex={accent === c ? 0 : -1} aria-label={cap(c)} onclick={() => (accent = c)}>
           {#if c}<i></i>{:else}A{/if}
@@ -116,7 +122,7 @@
     <div class="f gap">
       <button type="button" class="btn pri" onclick={submit}>{editingId ? 'Save changes' : 'Add routine'}</button>
       {#if editingId}<button type="button" class="btn" onclick={() => { reset(); msg = ''; }}>Cancel</button>{/if}
-      <button type="button" class="btn" onclick={loadStarter}>Reset to Default Schedule</button>
+      <button type="button" class="btn" onclick={loadStarter}>{lists.active.length ? 'Reset to Default Schedule' : 'Load starter schedule'}</button>
       <span class="empty" role="status">{msg}</span>
     </div>
   </div>
@@ -135,7 +141,7 @@
     <div class="f gap">
       <label class="lbl">From<input type="date" bind:value={restFrom} min="1900-01-01" max="2100-12-31" /></label>
       <label class="lbl">To<input type="date" bind:value={restTo} min="1900-01-01" max="2100-12-31" /></label>
-      <button type="button" class="btn pri" onclick={() => excuseRange(restFrom, restTo)}>Excuse routines</button>
+      <button type="button" class="btn" onclick={() => excuseRange(restFrom, restTo)}>Excuse routines</button>
     </div>
   </div>
 
@@ -161,7 +167,7 @@
   .sw[aria-checked='true'] { border: 2px solid var(--tx); color: var(--tx); }
   .rl { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: grid; gap: var(--sp-2); }
   .ri { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); border: 1px solid var(--line); border-left: 3px solid var(--ac, var(--line-2)); background: var(--surface); transition: box-shadow .15s; }
-  .ri.arch { border-style: dashed; border-left-style: dashed; opacity: .65; }
+  .ri.arch { border-style: dashed; border-left-style: dashed; }
   .ri.editing { border-color: color-mix(in srgb, var(--warn) 60%, transparent); background: color-mix(in srgb, var(--warn) 8%, var(--surface)); }
   .ri.dragging { position: relative; z-index: 3; border-color: var(--line-2); box-shadow: var(--shadow); }
   .ri.drop-before { box-shadow: inset 0 2px 0 var(--accent); } .ri.drop-after { box-shadow: inset 0 -2px 0 var(--accent); }
@@ -174,5 +180,9 @@
   .ra { display: flex; gap: var(--sp-2); flex-wrap: wrap; justify-content: flex-end; }
   .grip { width: 44px; height: 44px; flex: none; border: 0; background: none; color: var(--tx2); cursor: grab; touch-action: none; border-radius: var(--r-sm); display: grid; place-items: center; }
   .grip:hover { color: var(--tx); } .dragging .grip { cursor: grabbing; }
-  @media (max-width: 700px) { .dayb, .sw { width: 44px; height: 44px; } .ri { flex-wrap: wrap; } .n { flex: 1 1 140px; } .ra { flex: 1 1 100%; justify-content: flex-start; } }
+  @media (max-width: 700px) {
+    .days, .sws { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--sp-1); }
+    .dayb, .sw { width: 100%; height: 44px; }
+    .ri { flex-wrap: wrap; } .n { flex: 1 1 140px; } .ra { flex: 1 1 100%; justify-content: flex-start; }
+  }
 </style>
