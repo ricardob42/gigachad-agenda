@@ -1,5 +1,5 @@
 import {
-  KEY, PREFS_KEY, NUDGE_KEY, SHARE_CACHE, SHARE_PATH, THEMES, TM,
+  KEY, PREFS_KEY, NUDGE_KEY, SHARE_CACHE, SHARE_PATH, THEMES, TM, BG_MAX, BACKUP_MAX,
   blank, clean, isObj, cid, slot, key, addD, weekStart, monthStart, startOfToday, dayLabel,
   moveTask, copyDay, removeTask, delRoutine, restoreRoutine, applyEdit, applyStarter, moveStep,
   stateOf, nextTaskState, restRange, undoRest, tidyDay, REST_MAX_DAYS,
@@ -21,7 +21,7 @@ export const app = $state({
   monthPop: false,
   confirm: null,
   toasts: [],
-  prefs: { theme: 'ink', dim: 26 },
+  prefs: { theme: 'ink', dim: 26, bg: { desktop: false, mobile: false } },
   vw: 1024,
   bg: { desktop: null, mobile: null, available: true },
   nudge: { firstSeen: null, lastExport: null, lastDismiss: null },
@@ -37,7 +37,11 @@ let toastId = 0;
 export function toast(msg, type = 'info', act) {
   const a = typeof act === 'function' ? { label: 'Undo', run: act } : act;
   app.toasts.push({ id: ++toastId, msg, type, act: a });
-  while (app.toasts.length > 4) app.toasts.shift();
+  // Never evict a toast that carries an undo: it is the only way back.
+  while (app.toasts.length > 4) {
+    const i = app.toasts.findIndex((t) => !t.act);
+    app.toasts.splice(i >= 0 ? i : 0, 1);
+  }
 }
 export function dismiss(id) {
   const i = app.toasts.findIndex((t) => t.id === id);
@@ -60,10 +64,29 @@ export function answer(v) {
 
 /* ---------- persistence ---------- */
 let timer = 0, dirty = false, saveWarned = false;
+const REV_KEY = KEY + '_rev';
+let baseRev = 0;
+
+function downloadText(text, name) {
+  const u = URL.createObjectURL(new Blob([text], { type: 'application/json' })), a = document.createElement('a');
+  a.href = u; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 30000);
+}
 
 export function save() {
+  clearTimeout(timer);
   try {
+    // If another tab wrote after our snapshot, keep its version before this write replaces it.
+    const stored = Number(localStorage.getItem(REV_KEY)) || 0;
+    if (stored > baseRev) {
+      const prev = localStorage.getItem(KEY);
+      if (prev != null) { try { localStorage.setItem(KEY + '_conflict', prev); } catch { /* ignore */ } }
+      toast('Another tab changed your data. Its version was kept in a conflict copy.', 'info');
+    }
     localStorage.setItem(KEY, JSON.stringify(app.data));
+    baseRev = Math.max(stored, baseRev) + 1;
+    localStorage.setItem(REV_KEY, String(baseRev));
     saveWarned = false; dirty = false;
   } catch {
     if (!saveWarned) { saveWarned = true; toast('Could not save changes: browser storage is full or blocked. Export a backup now.', 'error'); }
@@ -77,17 +100,24 @@ export function persist() {
 }
 function load() {
   let raw = null;
-  try { raw = localStorage.getItem(KEY); } catch { return; }
+  try { raw = localStorage.getItem(KEY); baseRev = Number(localStorage.getItem(REV_KEY)) || 0; } catch { return; }
   if (raw == null) return;
   let o = null;
   try { o = JSON.parse(raw); } catch { /* handled below */ }
   if (!isObj(o)) {
     // Never destroy unreadable data silently: keep a copy before starting fresh.
-    try { localStorage.setItem(KEY + '_corrupt', raw); } catch { /* ignore */ }
-    app.data = blank(); save();
+    let kept = true;
+    try { localStorage.setItem(KEY + '_corrupt', raw); } catch { kept = false; }
+    if (kept) { app.data = blank(); dirty = true; save(); }
+    else toast('Unreadable stored data could not be copied. Download it before making changes.', 'error', { label: 'Download', run: () => downloadText(raw, KEY + '_corrupt.json') });
     return;
   }
-  app.data = clean(o);
+  const cleaned = clean(o);
+  // clean() drops unknown fields; keep the original once so a downgrade cannot erase a newer format.
+  if (JSON.stringify(cleaned) !== JSON.stringify(o)) {
+    try { if (!localStorage.getItem(KEY + '_pre-clean')) localStorage.setItem(KEY + '_pre-clean', raw); } catch { /* ignore */ }
+  }
+  app.data = cleaned;
 }
 function savePrefs() { try { localStorage.setItem(PREFS_KEY, JSON.stringify(app.prefs)); } catch { /* ignore */ } }
 function loadPrefs() {
@@ -96,6 +126,7 @@ function loadPrefs() {
     if (isObj(o)) {
       if (THEMES.some((t) => t.id === o.theme)) app.prefs.theme = o.theme;
       if (Number.isFinite(o.dim)) app.prefs.dim = Math.min(60, Math.max(0, Math.round(o.dim)));
+      if (isObj(o.bg)) app.prefs.bg = { desktop: o.bg.desktop === true, mobile: o.bg.mobile === true };
     }
   } catch { /* defaults */ }
 }
@@ -217,7 +248,7 @@ export function submitRoutine(editingId, f) {
     persist(); toast('Routine updated.', 'success');
     return '';
   }
-  const o = { id: cid(), name, time: f.time, days: [...f.days].sort() };
+  const o = { id: cid(), name, time: f.time, days: [...f.days].sort(), createdAt: key(app.today) };
   if (f.accent) o.accent = f.accent;
   app.data.routines.push(o);
   persist();
@@ -227,14 +258,14 @@ export function removeRoutine(r) {
   const sn = delRoutine(app.data, r.id);
   if (!sn) return;
   persist();
-  toast('Routine deleted.', 'success', () => { restoreRoutine(app.data, sn); persist(); toast('Restored — nothing was lost.', 'info'); });
+  toast('Routine deleted.', 'success', () => { restoreRoutine(app.data, sn); persist(); restored(); });
 }
 export function toggleArchive(r) {
   const was = r.archived === true;
   if (was) delete r.archived; else r.archived = true;
   persist();
   if (was) toast('Routine returned to the schedule.', 'info');
-  else toast('Routine archived.', 'success', () => { delete r.archived; persist(); toast('Restored — nothing was lost.', 'info'); });
+  else toast('Routine archived.', 'success', () => { delete r.archived; persist(); restored(); });
 }
 /** Excuses open routine sessions in [from, to]. Undo removes only what this call added. */
 export function excuseRange(from, to) {
@@ -254,11 +285,14 @@ export function stepRoutine(id, dir) {
   return r;
 }
 export async function loadStarter() {
-  const ok = await ask({ title: 'Replace routines?', body: 'All routines will be replaced with the default schedule. Custom tasks are kept.', ok: 'Replace' });
-  if (!ok) return;
+  const empty = app.data.routines.length === 0;
+  if (!empty) {
+    const ok = await ask({ title: 'Replace routines?', body: 'All routines will be replaced with the default schedule. Custom tasks and completion history are kept.', ok: 'Replace' });
+    if (!ok) return;
+  }
   applyStarter(app.data);
   persist();
-  toast('Default schedule restored.', 'success');
+  toast(empty ? 'Starter schedule added.' : 'Default schedule restored.', 'success');
 }
 
 /* ---------- backup ---------- */
@@ -270,12 +304,10 @@ export const backupDue = () => nudgeDue(app.nudge, Date.now(), hasMeaningfulData
 function markExport() { app.nudge.lastExport = Date.now(); saveNudge(); }
 export function snoozeNudge() { app.nudge.lastDismiss = Date.now(); saveNudge(); toast('Reminder snoozed for 14 days.', 'info'); }
 
-export function downloadBackup() {
-  const b = buildBackup(app.data), u = URL.createObjectURL(new Blob([b.json], { type: 'application/json' })), a = document.createElement('a');
-  a.href = u; a.download = b.name;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(u), 1000);
-  markExport();
+export function downloadBackup(mark = true) {
+  const b = buildBackup(app.data);
+  downloadText(b.json, b.name);
+  if (mark) markExport();
   toast('Backup downloaded.', 'success');
 }
 export async function shareBackup() {
@@ -288,25 +320,30 @@ export async function shareBackup() {
     markExport(); toast('Backup shared.', 'success');
   } catch (err) {
     if (err && err.name === 'AbortError') { toast('Share cancelled.', 'info'); return; }
-    downloadBackup();
+    // Fallback download: do not claim the backup is done, the user may cancel the save dialog.
+    downloadBackup(false);
   }
 }
-export async function importText(text, size) {
-  const r = parseBackup(text, size);
+export async function importText(text) {
+  const r = parseBackup(text);
   if (r.error) { app.backupMsg = r.error; return; }
   const ok = await ask({ title: 'Replace current data?', body: `This backup contains ${r.data.routines.length} routines. Your current data will be replaced.`, ok: 'Replace' });
   if (!ok) return;
   app.data = r.data;
+  dirty = true;
   save();
   let ct = 0;
   own(r.data.customTasks, (k, v) => { ct += Object.keys(v).length; });
-  app.backupMsg = 'Backup restored.';
-  toast(`Backup restored: ${r.data.routines.length} routines, ${ct} custom tasks, ${Object.keys(r.data.notes).length} day notes.`, 'success');
+  const dropped = r.dropped ? `, ${r.dropped} invalid entr${r.dropped === 1 ? 'y' : 'ies'} dropped` : '';
+  app.backupMsg = dropped ? 'Backup restored, some entries were invalid.' : 'Backup restored.';
+  toast(`Backup restored: ${r.data.routines.length} routines, ${ct} custom tasks, ${Object.keys(r.data.notes).length} day notes${dropped}.`, dropped ? 'info' : 'success');
 }
 export function importFile(f) {
   if (!f) return;
+  if (f.size > BACKUP_MAX) { app.backupMsg = 'File exceeds 5 MB.'; return; }
   const rd = new FileReader();
-  rd.onload = () => importText(String(rd.result), f.size);
+  rd.onload = () => importText(String(rd.result));
+  rd.onerror = () => { app.backupMsg = 'Could not read that file.'; };
   rd.readAsText(f);
 }
 async function handleShared() {
@@ -319,28 +356,42 @@ async function handleShared() {
     const c = await caches.open(SHARE_CACHE), r = await c.match(SHARE_PATH);
     await c.delete(SHARE_PATH);
     const t = r ? await r.text() : '';
-    if (t) importText(t, t.length); else app.backupMsg = 'No shared file found.';
+    if (t) importText(t); else app.backupMsg = 'No shared file found.';
   } catch { app.backupMsg = 'Shared file could not be read.'; }
 }
 
 /* ---------- backgrounds ---------- */
 const bgName = (k) => (k === 'mobile' ? 'Mobile' : 'Desktop');
+const bgNoticed = { desktop: false, mobile: false };
 async function refreshBg(kind) {
   const blob = await bgLoad(kind);
   if (app.bg[kind]) URL.revokeObjectURL(app.bg[kind]);
   app.bg[kind] = blob ? URL.createObjectURL(blob) : null;
+  // Cache Storage can evict images under pressure; say so instead of silently losing them.
+  if (!blob && app.prefs.bg[kind] && !bgNoticed[kind]) {
+    bgNoticed[kind] = true;
+    toast(`The ${bgName(kind)} background was removed by the browser to free space.`, 'info');
+  }
 }
 export async function pickBg(kind, f) {
   if (!f) return;
-  if (f.size > 12 * 1024 * 1024) { toast('Image is larger than 12 MB.', 'error'); return; }
+  if (f.size > BG_MAX) { toast('Image is larger than 12 MB.', 'error'); return; }
   if (!bgFileOK(f)) { toast('Choose an image file.', 'error'); return; }
   try { await bgDecodes(f); } catch { toast('That file is not a readable image.', 'error'); return; }
-  try { await bgSave(kind, f); await refreshBg(kind); toast(`${bgName(kind)} background saved.`, 'success'); }
-  catch { toast('Could not save the background in this browser.', 'error'); }
+  try {
+    await bgSave(kind, f);
+    app.prefs.bg[kind] = true; bgNoticed[kind] = false; savePrefs();
+    await refreshBg(kind);
+    toast(`${bgName(kind)} background saved.`, 'success');
+  } catch { toast('Could not save the background in this browser.', 'error'); }
 }
 export async function clearBg(kind) {
-  try { await bgDelete(kind); await refreshBg(kind); toast(`${bgName(kind)} background cleared.`, 'info'); }
-  catch { toast('Could not clear the background.', 'error'); }
+  try {
+    await bgDelete(kind);
+    app.prefs.bg[kind] = false; savePrefs();
+    await refreshBg(kind);
+    toast(`${bgName(kind)} background cleared.`, 'info');
+  } catch { toast('Could not clear the background.', 'error'); }
 }
 
 /* ---------- lifecycle ---------- */
@@ -362,9 +413,16 @@ export function init() {
   });
   // Cross-tab sync: adopt changes written by another tab unless we have unsaved edits.
   addEventListener('storage', (e) => {
-    if ((e.key !== null && e.key !== KEY) || dirty) return;
+    if (dirty) return;
+    if (e.key !== null && e.key !== KEY) return;
+    // e.key === null means clear(): only adopt the wipe if our key is really gone.
+    if (e.key === null) { try { if (localStorage.getItem(KEY) != null) return; } catch { return; } }
     let o = null;
-    try { const raw = localStorage.getItem(KEY); o = raw == null ? null : JSON.parse(raw); } catch { return; }
+    try {
+      const raw = localStorage.getItem(KEY);
+      o = raw == null ? null : JSON.parse(raw);
+      baseRev = Number(localStorage.getItem(REV_KEY)) || baseRev;
+    } catch { return; }
     app.data = isObj(o) ? clean(o) : blank();
   });
   setInterval(refreshToday, 60000);

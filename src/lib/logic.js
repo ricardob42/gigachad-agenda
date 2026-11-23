@@ -8,10 +8,10 @@ export const SHARE_CACHE = 'gigachad-agenda-share-inbox-v1';
 export const SHARE_PATH = '/__gigachad-agenda-share__/pending';
 export const BG_MAX = 12 * 1024 * 1024;
 export const BACKUP_MAX = 5 * 1024 * 1024;
-export const NUDGE_DAYS = 14;
-export const DAY_MS = 86400000;
+const NUDGE_DAYS = 14;
+const DAY_MS = 86400000;
 
-export const ISO = /^\d{4}-\d{2}-\d{2}$/;
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
 export const TM = /^([01]\d|2[0-3]):([0-5]\d)$/;
 export const ACC = ['blue', 'emerald', 'amber', 'rose', 'violet', 'cyan'];
 export const MON = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -19,18 +19,18 @@ export const MS = MON.map((m) => m.slice(0, 3));
 export const DW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 // [slug, name, time, weekday]
-export const STARTER = [
+const STARTER = [
   ['sun-reflection', 'Weekly Reflection', '09:00', 0], ['sun-academic', 'Academic Prep', '11:00', 0], ['sun-planning', 'Routine Planning', '17:00', 0],
-  ['mon-gym', 'Gym — Push', '06:30', 1], ['mon-study', 'Academic Study Block', '09:00', 1], ['mon-coursework', 'Focused Coursework', '14:00', 1],
-  ['tue-gym', 'Gym — Upper Body', '06:30', 2], ['tue-study', 'Academic Study Block', '09:00', 2], ['tue-technical', 'Technical Study', '15:00', 2],
-  ['wed-gym', 'Gym — Legs', '06:30', 3], ['wed-math', 'Math III', '10:00', 3], ['wed-projects', 'Engineering Projects', '15:00', 3],
-  ['thu-gym', 'Gym — Conditioning', '06:30', 4], ['thu-math', 'Math III', '10:00', 4], ['thu-projects', 'Engineering Projects', '15:00', 4],
+  ['mon-gym', 'Gym · Push', '06:30', 1], ['mon-study', 'Academic Study Block', '09:00', 1], ['mon-coursework', 'Focused Coursework', '14:00', 1],
+  ['tue-gym', 'Gym · Upper Body', '06:30', 2], ['tue-study', 'Academic Study Block', '09:00', 2], ['tue-technical', 'Technical Study', '15:00', 2],
+  ['wed-gym', 'Gym · Legs', '06:30', 3], ['wed-math', 'Math III', '10:00', 3], ['wed-projects', 'Engineering Projects', '15:00', 3],
+  ['thu-gym', 'Gym · Conditioning', '06:30', 4], ['thu-math', 'Math III', '10:00', 4], ['thu-projects', 'Engineering Projects', '15:00', 4],
   ['fri-gym', 'Full-Body Training', '06:30', 5], ['fri-review', 'Academic Review', '10:00', 5], ['fri-planning', 'Weekly Planning', '16:00', 5],
   ['sat-recovery', 'Active Recovery', '09:00', 6], ['sat-web', 'Web Projects', '11:00', 6], ['sat-portfolio', 'Portfolio Development', '15:00', 6],
 ];
 
 /** Labels for the three task states, used in aria-labels. */
-export const STATE_TEXT = { open: 'not done', done: 'done', excused: 'excused, not counted as missed' };
+const STATE_TEXT = { open: 'not done', done: 'done', excused: 'excused, not counted as missed' };
 
 export const THEMES = [
   { id: 'ink', name: 'Ink', color: '#0c0d10', accent: '#d7f25c' },
@@ -40,14 +40,14 @@ export const THEMES = [
 ];
 
 /* ---------- dates ---------- */
-export const p2 = (n) => (n < 10 ? '0' : '') + n;
+const p2 = (n) => (n < 10 ? '0' : '') + n;
 export const key = (d) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
 export const parse = (k) => { const a = k.split('-'); return new Date(+a[0], +a[1] - 1, +a[2]); };
 export const validDate = (k) => typeof k === 'string' && ISO.test(k) && key(parse(k)) === k;
 export const addD = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 export const weekStart = (d) => addD(d, -d.getDay());
 export const monthStart = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
-export const dimM = (y, m) => new Date(y, m + 1, 0).getDate();
+const dimM = (y, m) => new Date(y, m + 1, 0).getDate();
 export const clampYear = (y) => Math.min(2100, Math.max(1900, y));
 export const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
 
@@ -84,6 +84,7 @@ export function clean(o) {
     const x = { id: r.id, name, time: r.time, days };
     if (ACC.includes(r.accent)) x.accent = r.accent;
     if (r.archived === true) x.archived = true;
+    if (validDate(r.createdAt)) x.createdAt = r.createdAt;
     s.routines.push(x);
   });
   if (isObj(o.customTasks)) own(o.customTasks, (k, v) => {
@@ -136,40 +137,18 @@ export function applyEdit(r, p) {
   if (ACC.includes(p.accent)) r.accent = p.accent; else delete r.accent;
   return true;
 }
+/** Removes the routine only; its completion marks stay so history is never destroyed. */
 export function delRoutine(s, id) {
   const idx = s.routines.findIndex((r) => r.id === id);
   if (idx < 0) return null;
-  const rt = s.routines.splice(idx, 1)[0], pf = `routine:${id}:`;
-  return { r: rt, i: idx, co: pluck(s.completions, pf), ex: pluck(s.excused, pf) };
+  return { r: s.routines.splice(idx, 1)[0], i: idx };
 }
 export function restoreRoutine(s, sn) {
   s.routines.splice(Math.min(sn.i, s.routines.length), 0, sn.r);
-  putBack(s.completions, sn.co);
-  putBack(s.excused, sn.ex);
 }
-/** Moves every mark whose id starts with `pf` out of map `m` and returns them. */
-function pluck(m, pf) {
-  const out = {};
-  own(m, (k, v) => {
-    own(v, (cd) => { if (cd.indexOf(pf) === 0) { slot(out, k)[cd] = true; delete v[cd]; } });
-    if (!Object.keys(v).length) delete m[k];
-  });
-  return out;
-}
-function putBack(m, src) { own(src, (k, v) => own(v, (cd) => { slot(m, k)[cd] = true; })); }
-/** Drops routine marks whose routine is not in `keep` (a map of "routine:<id>:" prefixes). */
-function dropOrphans(m, keep) {
-  own(m, (k, v) => {
-    own(v, (id) => { if (id.indexOf('routine:') === 0 && !keep[id.slice(0, id.lastIndexOf(':') + 1)]) delete v[id]; });
-    if (!Object.keys(v).length) delete m[k];
-  });
-}
-/** Replaces routines with the starter schedule, pruning marks of routines that no longer exist. */
+/** Replaces routines with the starter schedule. History of previous routines is kept as orphan marks. */
 export function applyStarter(s) {
-  const keep = {};
-  s.routines = STARTER.map((r) => { keep[`routine:gch-default-${r[0]}:`] = 1; return { id: 'gch-default-' + r[0], name: r[1], time: r[2], days: [r[3]] }; });
-  dropOrphans(s.completions, keep);
-  dropOrphans(s.excused, keep);
+  s.routines = STARTER.map((r) => ({ id: 'gch-default-' + r[0], name: r[1], time: r[2], days: [r[3]] }));
 }
 
 /* ---------- task states: open, done, excused ---------- */
@@ -200,7 +179,7 @@ export function restRange(s, from, to) {
   for (let i = 0; i < span; i++) {
     const d = addD(a, i), k = key(d);
     s.routines.forEach((r) => {
-      if (r.archived || !r.days.includes(d.getDay())) return;
+      if (r.archived || !r.days.includes(d.getDay()) || (r.createdAt && k < r.createdAt)) return;
       const id = `routine:${r.id}:${k}`;
       if (stateOf(s, k, id) === 'open') { slot(s.excused, k)[id] = true; added.push([k, id]); }
     });
@@ -213,7 +192,7 @@ export function undoRest(s, added) {
 }
 
 /* ---------- tasks ---------- */
-export function autoTag(title, w) {
+function autoTag(title, w) {
   const t = String(title);
   if (/math/i.test(t)) return 'math';
   if (/study|academic|coursework|review|prep|learn|read|lecture|exam/i.test(t)) return 'study';
@@ -221,7 +200,7 @@ export function autoTag(title, w) {
 }
 export function tasksFor(s, d) {
   const k = key(d), w = d.getDay(), c = s.customTasks[k] || {}, a = [];
-  s.routines.forEach((r) => { if (!r.archived && r.days.includes(w)) a.push({ id: `routine:${r.id}:${k}`, time: r.time, title: r.name, custom: false, acc: r.accent, tag: autoTag(r.name, w) }); });
+  s.routines.forEach((r) => { if (!r.archived && r.days.includes(w) && (!r.createdAt || k >= r.createdAt)) a.push({ id: `routine:${r.id}:${k}`, time: r.time, title: r.name, custom: false, acc: r.accent, tag: autoTag(r.name, w) }); });
   Object.keys(c).forEach((id) => a.push({ id, time: c[id].time, title: c[id].title, custom: true, tag: autoTag(c[id].title, w) }));
   return a.sort((x, y) => (x.time < y.time ? -1 : x.time > y.time ? 1 : 0));
 }
@@ -229,17 +208,15 @@ export function dayStat(s, d) {
   const k = key(d), c = s.completions[k] || {}, e = s.excused[k] || {};
   const t = tasksFor(s, d).map((x) => ({ ...x, ex: !!e[x.id], state: e[x.id] ? 'excused' : c[x.id] ? 'done' : 'open' }));
   const ex = t.filter((x) => x.ex).length;
-  return { t, c, e, ex, n: t.filter((x) => x.state === 'done').length, active: t.length - ex };
+  return { t, ex, n: t.filter((x) => x.state === 'done').length, active: t.length - ex };
 }
 /** Done / total for a day. Excused tasks are removed from the total. */
-export function dayRatio(s, d) {
-  const k = key(d), c = s.completions[k] || {}, e = s.excused[k] || {}, custom = Object.keys(s.customTasks[k] || {}), w = d.getDay();
-  let n = 0, t = 0;
-  const one = (id) => { if (e[id]) return; t++; if (c[id]) n++; };
-  s.routines.forEach((r) => { if (!r.archived && r.days.includes(w)) one(`routine:${r.id}:${k}`); });
-  custom.forEach((id) => one(id));
-  return { n, t };
-}
+export function dayRatio(s, d) { const st = dayStat(s, d); return { n: st.n, t: st.active }; }
+/** One-line human summary of a day's state, shared by calendar and week view. */
+export const daySummary = (st) => (!st.t.length ? 'no tasks' : !st.active ? 'rest day' : `${st.n} of ${st.active} done${st.ex ? `, ${st.ex} excused` : ''}`);
+/** Aria label for a task row. */
+export const taskAria = (t) => `${t.title}, ${t.time}, ${STATE_TEXT[t.state]}`;
+export const taskChecked = (state) => (state === 'done' ? 'true' : state === 'excused' ? 'mixed' : 'false');
 const dropEmpty = (o, k) => { if (o[k] && !Object.keys(o[k]).length) delete o[k]; };
 export function moveTask(s, a, id, b) {
   if (a === b || !s.customTasks[a] || !s.customTasks[a][id]) return false;
@@ -280,13 +257,15 @@ export function streaks(s, today) {
     if (r.t === 0) continue;
     if (r.n === r.t) cur++; else if (i === 0) continue; else break;
   }
-  for (i = 364; i >= 0; i--) {
+  for (i = 999; i >= 0; i--) {
     r = dayRatio(s, addD(today, -i));
     if (r.t === 0) continue;
     if (r.n === r.t) { run++; if (run > best) best = run; } else if (i === 0) continue; else run = 0;
   }
   return { cur, best };
 }
+/** True while the current streak is safe: today is complete, or nothing is due today. */
+export function streakLit(s, today) { const sk = streaks(s, today), td = dayRatio(s, today); return sk.cur > 0 && (td.t === 0 || td.n === td.t); }
 export function heatLevel(n, t) { if (!t) return -1; if (!n) return 0; const q = n / t; return q < 0.34 ? 1 : q < 0.67 ? 2 : q < 1 ? 3 : 4; }
 export function monthTotals(s, y, m) {
   let n = 0, t = 0;
@@ -305,6 +284,7 @@ export function breakdown(s, today) {
     let done = 0, exp = 0, all = 0;
     for (let i = 0; i < 30; i++) {
       const d = addD(today, -i), k = key(d);
+      if (r.createdAt && k < r.createdAt) continue;
       if (r.days.includes(d.getDay()) && !(s.excused[k] && s.excused[k][pf + k])) { exp++; if (s.completions[k] && s.completions[k][pf + k]) done++; }
     }
     Object.keys(s.completions).forEach((k) => Object.keys(s.completions[k]).forEach((id) => { if (id.indexOf(pf) === 0) all++; }));
@@ -322,7 +302,7 @@ export function fReset(f, dur) { f.dur = dur; f.left = dur * 60000; f.status = '
 export function fTick(f, now) { if (f.status === 'running' && now >= f.endAt) { f.status = 'done'; f.left = 0; return true; } return false; }
 
 /* ---------- command palette ---------- */
-export function fuzzy(q, t) {
+function fuzzy(q, t) {
   q = q.toLowerCase(); t = t.toLowerCase();
   let qi = 0, sc = 0, prev = -2;
   for (let i = 0; i < t.length && qi < q.length; i++) {
@@ -335,7 +315,7 @@ export function fuzzy(q, t) {
   }
   return qi === q.length ? sc : -1;
 }
-export function cmdScore(q, c) {
+function cmdScore(q, c) {
   const a = fuzzy(q, c.label || ''), b = fuzzy(q, c.kw || ''), h = fuzzy(q, c.hint || '');
   let best = -1;
   if (a >= 0) best = Math.max(best, a * 2);
@@ -399,13 +379,15 @@ export function buildBackup(s, now = new Date()) {
   const o = { format: 'gigachad-agenda-backup', version: 1, app: 'Gigachad Agenda', storageKey: KEY, exportedAt: now.toISOString(), routines: s.routines, customTasks: s.customTasks, completions: s.completions, excused: s.excused, notes: s.notes };
   return { json: JSON.stringify(o, null, 2), name: `gigachad-agenda-backup-${key(now)}.json` };
 }
-/** Returns {error} or {data} (already cleaned). */
-export function parseBackup(text, size) {
-  if (size > BACKUP_MAX) return { error: 'File exceeds 5 MB.' };
+const countEntries = (d) => (d.routines || []).length + Object.values(d.customTasks || {}).reduce((n, v) => n + (v && typeof v === 'object' ? Object.keys(v).length : 0), 0) + Object.keys(d.notes || {}).length;
+/** Returns {error} or {data} (already cleaned) plus how many entries validation dropped. */
+export function parseBackup(text) {
+  if (text.length > BACKUP_MAX) return { error: 'File exceeds 5 MB.' };
   let o;
   try { o = JSON.parse(text); } catch { return { error: 'Not valid JSON.' }; }
   if (!isObj(o) || o.format !== 'gigachad-agenda-backup' || o.version !== 1 || o.storageKey !== KEY || !Array.isArray(o.routines) || !isObj(o.customTasks) || !isObj(o.completions) || (o.notes !== undefined && !isObj(o.notes)) || (o.excused !== undefined && !isObj(o.excused))) return { error: 'Invalid backup file.' };
-  return { data: clean(o) };
+  const data = clean(o);
+  return { data, dropped: Math.max(0, countEntries(o) - countEntries(data)) };
 }
 export function nudgeClean(raw) {
   const r = { firstSeen: null, lastExport: null, lastDismiss: null };

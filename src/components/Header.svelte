@@ -1,12 +1,10 @@
 <script>
   import Icon from './Icon.svelte';
   import { app } from '../lib/store.svelte.js';
-  import { streaks, dayRatio } from '../lib/logic.js';
+  import { streaks, streakLit } from '../lib/logic.js';
 
   const cur = $derived(streaks(app.data, app.today).cur);
-  const td = $derived(dayRatio(app.data, app.today));
-  // Lit only while the streak is safe: today is complete, or nothing is due today.
-  const lit = $derived(cur > 0 && (td.t === 0 || td.n === td.t));
+  const lit = $derived(streakLit(app.data, app.today));
   const tip = $derived(lit ? `Current streak: ${cur} ${cur === 1 ? 'day' : 'days'}` : cur > 0 ? `Streak of ${cur} ${cur === 1 ? 'day' : 'days'} is at risk: finish today's tasks to keep it` : 'No active streak');
   const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 </script>
@@ -37,9 +35,8 @@
     border-bottom: 1px solid var(--line);
   }
   .logo {
-    width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center;
+    width: 40px; height: 40px; border-radius: var(--r-md); display: grid; place-items: center;
     background: var(--accent); color: var(--on-accent);
-    box-shadow: 0 6px 20px -6px var(--accent);
   }
   .brand b { display: block; font: 700 21px/1.05 var(--font-display); letter-spacing: -.02em; }
   .brand b span { font: 300 12px var(--font-body); letter-spacing: .24em; text-transform: uppercase; color: var(--tx2); margin-left: 2px; }

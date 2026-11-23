@@ -1,7 +1,7 @@
 <script>
   import Icon from './Icon.svelte';
   import { app, shiftWeek, thisWeek, openDay, cycleTask, moveTo, copyTasks } from '../lib/store.svelte.js';
-  import { MON, DW, key, addD, dayStat, weekLabel, STATE_TEXT } from '../lib/logic.js';
+  import { MON, DW, key, addD, dayStat, weekLabel, daySummary, taskAria, taskChecked } from '../lib/logic.js';
 
   const days = $derived(Array.from({ length: 7 }, (_, i) => {
     const d = addD(app.week, i), k = key(d), st = dayStat(app.data, d);
@@ -11,11 +11,7 @@
   const done = $derived(days.reduce((a, x) => a + x.st.n, 0));
 
   let dragT = $state(null), over = $state(null), copyFrom = $state(null);
-  const checked = (t) => (t.state === 'done' ? 'true' : t.state === 'excused' ? 'mixed' : 'false');
-  const headLabel = (x) => {
-    const st = x.st, count = !st.t.length ? ', no tasks' : !st.active ? ', rest day' : `, ${st.n} of ${st.active} done`;
-    return `${DW[x.d.getDay()]}, ${MON[x.d.getMonth()]} ${x.d.getDate()}${count}${st.ex && st.active ? `, ${st.ex} excused` : ''}${app.data.notes[x.k] ? ', has note' : ''}`;
-  };
+  const headLabel = (x) => `${DW[x.d.getDay()]}, ${MON[x.d.getMonth()]} ${x.d.getDate()}, ${daySummary(x.st)}${app.data.notes[x.k] ? ', has note' : ''}`;
 </script>
 
 <section class="view" id="view-week" role="tabpanel" aria-labelledby="t-week">
@@ -65,8 +61,8 @@
           {#each x.st.t as t (t.id)}
             <li>
               <button
-                type="button" class="row wrow {t.acc ? 'a-' + t.acc : t.tag ? 'tg-' + t.tag : ''}" role="checkbox" aria-checked={checked(t)}
-                aria-label="{t.title}, {t.time}, {STATE_TEXT[t.state]}" draggable={t.custom} onclick={() => cycleTask(x.k, t.id)}
+                type="button" class="row wrow {t.acc ? 'a-' + t.acc : t.tag ? 'tg-' + t.tag : ''}" role="checkbox" aria-checked={taskChecked(t.state)}
+                aria-label={taskAria(t)} draggable={t.custom} onclick={() => cycleTask(x.k, t.id)}
                 ondragstart={(e) => { dragT = { k: x.k, id: t.id }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', t.id); } catch { /* ignore */ } }}
                 ondragend={() => { dragT = null; over = null; }}
               >
@@ -85,9 +81,7 @@
 </section>
 
 <style>
-  .bar { display: flex; align-items: center; gap: var(--sp-3); margin: var(--sp-5) 0 var(--sp-4); flex-wrap: wrap; }
   h1 { font-size: clamp(26px, 4vw, 40px); line-height: 1.1; font-weight: 600; font-variation-settings: 'opsz' 72; }
-  .nav { margin-left: auto; display: flex; gap: var(--sp-2); }
   .wgrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--sp-2); align-items: start; }
   .wcard {
     display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3); min-width: 0;
@@ -107,16 +101,29 @@
   .pen { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); align-self: center; }
   .wcopy { width: 36px; height: 36px; }
   @media (hover: hover) { .wcopy { opacity: 0; } .wcard:hover .wcopy, .wcopy:focus-visible, .wcopy[aria-expanded='true'] { opacity: 1; } }
-  .prog { height: 3px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+  .prog { height: 3px; border-radius: var(--r-xs); background: var(--surface-3); overflow: hidden; }
   .prog i { display: block; height: 100%; background: var(--good); transition: width .4s var(--ease); }
   .copy { display: grid; gap: var(--sp-2); padding: var(--sp-2); border-radius: var(--r-sm); background: var(--surface-2); font-size: 12px; color: var(--tx2); animation: in .2s both; }
-  .wl { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-1); }
+  .wl { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); }
   .wl .empty { font-size: 13px; }
   .wrow { min-height: 36px; padding: 0 var(--sp-2); gap: var(--sp-2); font-size: 13px; }
   .wrow .tm { font-size: 11px; }
   .wrow[draggable='true'] { cursor: grab; }
   .wrow[class*='a-'], .wrow[class*='tg-'] { background: color-mix(in srgb, var(--ac) 14%, transparent); }
   .wcard.future .ct { opacity: .7; }
+  /* Seven day columns leave ~130px per row: give the title its own line. */
+  @media (min-width: 981px) {
+    .wrow {
+      display: grid; grid-template-columns: auto 1fr; grid-template-areas: 'box time' 'title title';
+      align-items: center; column-gap: var(--sp-2); row-gap: 2px; min-height: 48px; padding: var(--sp-1) var(--sp-2);
+    }
+    .wrow .box { grid-area: box; }
+    .wrow .tm { grid-area: time; justify-self: end; }
+    .wrow .t {
+      grid-area: title; white-space: normal; overflow-wrap: anywhere; line-height: 1.3;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    }
+  }
   @media (max-width: 980px) { .wgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 700px) { .wgrid { grid-template-columns: 1fr; } .wrow, .wh, .wcopy { min-height: 44px; } .wcopy { width: 44px; } }
 </style>

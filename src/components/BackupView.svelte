@@ -12,7 +12,7 @@
       <Icon name="clock" size={22} />
       <div class="nt"><b>Time for a backup?</b><span>{nudgeText(app.nudge, Date.now())}</span></div>
       <div class="f">
-        <button type="button" class="btn pri sm" onclick={downloadBackup}>Export now</button>
+        <button type="button" class="btn sm" onclick={downloadBackup}>Export now</button>
         <button type="button" class="btn sm" onclick={snoozeNudge}>Dismiss</button>
       </div>
     </div>
@@ -46,7 +46,4 @@
   .nt { flex: 1; min-width: 200px; } .nt b { display: block; font-weight: 600; } .nt span { color: var(--tx2); font-size: 14px; }
   .blist { margin: var(--sp-2) 0 var(--sp-3); padding-left: var(--sp-5); color: var(--tx2); }
   .imp { margin-top: var(--sp-3); }
-  .pick { position: relative; display: inline-flex; align-items: center; overflow: hidden; }
-  .pick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-  .pick:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 </style>
